@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>客户端管理</title>
+  <style>
+    :root {
+      --bg: #181818;
+      --surface: #232524;
+      --surface-2: #2c2f2d;
+      --surface-3: #343836;
+      --line: #444a46;
+      --line-soft: #353a37;
+      --text: #f0f4ef;
+      --muted: #aeb9b1;
+      --muted-2: #7f8a84;
+      --accent: #2fb8a1;
+      --accent-strong: #49d1b9;
+      --accent-soft: rgba(47, 184, 161, .14);
+      --warn: #d99b2b;
+      --danger: #e05d57;
+      --danger-soft: rgba(224, 93, 87, .14);
+      --ok: #64c27b;
+      --radius: 8px;
+      --shadow: 0 18px 42px rgba(0, 0, 0, .28);
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body { margin: 0; font-family: Arial, "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); line-height: 1.45; }
+    header { position: sticky; top: 0; z-index: 5; background: rgba(24,24,24,.94); border-bottom: 1px solid var(--line); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; backdrop-filter: blur(10px); }
+    header strong { font-size: 18px; letter-spacing: 0; }
+    nav { display: flex; align-items: center; gap: 8px; color: var(--muted-2); font-size: 14px; }
+    a { color: #8bded2; text-decoration: none; }
+    a:hover { color: var(--accent-strong); }
+    h2, h3 { color: var(--text); line-height: 1.2; }
+    h2 { margin: 0 0 12px; font-size: 20px; }
+    h3 { margin: 18px 0 8px; font-size: 15px; }
+    p { margin: 8px 0; }
+    .layout { display: grid; grid-template-columns: minmax(300px, 360px) minmax(0, 1fr); gap: 16px; width: min(1440px, 100%); margin: 0 auto; padding: 16px 16px 32px; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+    .sidebar-panel { align-self: start; position: sticky; top: 73px; max-height: calc(100vh - 90px); overflow: auto; }
+    .section-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .section-title h2 { margin: 0; }
+    .small-action { width: auto; padding: 7px 10px; margin-top: 0; font-size: 13px; }
+    .client-list { display: grid; gap: 8px; margin-top: 12px; }
+    .client { border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 11px; cursor: pointer; background: #202220; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
+    .client:hover { border-color: rgba(73,209,185,.72); background: #252a27; }
+    .client.active { border-color: var(--accent-strong); background: var(--accent-soft); box-shadow: 0 0 0 1px rgba(73,209,185,.18) inset; }
+    .client-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+    .client-sn { min-width: 0; overflow-wrap: anywhere; font-weight: 700; color: #ffffff; }
+    .client-actions { display: flex; align-items: flex-start; gap: 6px; flex: 0 0 auto; }
+    .client-link { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 8px; font-size: 12px; background: rgba(47,184,161,.12); border: 1px solid rgba(73,209,185,.30); color: #b8f3eb; white-space: nowrap; }
+    .client-link:hover { color: #ffffff; border-color: rgba(73,209,185,.72); }
+    .client-disconnect { display: inline-flex; align-items: center; width: auto; margin-top: 0; border-radius: 999px; padding: 2px 8px; font-size: 12px; line-height: 1.45; color: #ffd6d3; background: rgba(224,93,87,.10); border-color: rgba(224,93,87,.42); white-space: nowrap; }
+    .client-disconnect:hover { background: rgba(224,93,87,.18); border-color: rgba(224,93,87,.78); }
+    .client-meta { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+    .status { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 8px; font-size: 12px; margin: 3px 4px 0 0; background: #303431; color: #cbd6cf; border: 1px solid transparent; }
+    .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--muted-2); margin-right: 6px; }
+    .ok { background: rgba(100,194,123,.14); color: #a7e7b5; border-color: rgba(100,194,123,.25); }
+    .ok::before { background: var(--ok); }
+    .bad { background: var(--danger-soft); color: #f1aaa6; border-color: rgba(224,93,87,.25); }
+    .bad::before { background: var(--danger); }
+    label { display: block; font-size: 13px; margin-top: 12px; color: var(--muted); }
+    label input[type="checkbox"] { margin-right: 7px; vertical-align: -2px; accent-color: var(--accent); }
+    input, textarea, select, button { width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 6px; font: inherit; background: #171817; color: var(--text); outline: none; }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent-strong); box-shadow: 0 0 0 3px rgba(47,184,161,.18); }
+    input::placeholder, textarea::placeholder { color: #78827b; }
+    input[type="file"] { padding: 8px; background: #1d1f1d; }
+    input[type="file"]::file-selector-button { margin-right: 10px; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; background: var(--surface-3); color: var(--text); cursor: pointer; }
+    textarea { min-height: 120px; resize: vertical; }
+    button { cursor: pointer; margin-top: 10px; background: var(--surface-2); border-color: var(--line); transition: border-color .15s ease, background .15s ease, transform .08s ease; }
+    button:hover { border-color: var(--accent-strong); background: #303734; }
+    button:active { transform: translateY(1px); }
+    .primary { background: #147a6c; border-color: #239985; color: #f6fffd; font-weight: 700; }
+    .primary:hover { background: #188a7a; }
+    .danger { color: #ffd6d3; border-color: rgba(224,93,87,.55); background: rgba(224,93,87,.10); }
+    .danger:hover { background: rgba(224,93,87,.18); border-color: rgba(224,93,87,.86); }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .target-bar { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line-soft); }
+    .target-bar label { margin-top: 0; }
+    .target-row { display: grid; grid-template-columns: minmax(180px, 1fr) auto auto; align-items: end; gap: 12px; }
+    .tabs { display: flex; gap: 6px; margin: 0 0 16px; overflow-x: auto; padding: 3px; background: #1b1d1b; border: 1px solid var(--line-soft); border-radius: var(--radius); }
+    .tab-button { width: auto; flex: 0 0 auto; margin-top: 0; padding: 9px 13px; white-space: nowrap; color: var(--muted); background: transparent; border-color: transparent; }
+    .tab-button:hover { background: var(--surface-2); border-color: transparent; }
+    .tab-button.active { background: var(--accent-soft); border-color: rgba(73,209,185,.40); color: #eafffb; font-weight: 700; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .tab-panel h3:first-child { margin-top: 0; }
+    .tool-block { background: #1e201e; border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 14px; margin-top: 12px; }
+    .tool-block:first-child { margin-top: 0; }
+    .tool-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .tool-head h3 { margin: 0; }
+    .tool-note { color: var(--muted-2); font-size: 12px; margin: 2px 0 0; }
+    .check-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; margin: 4px 0 2px; }
+    .form-divider { height: 1px; margin: 18px 0 0; background: var(--line-soft); }
+    .log { min-height: 360px; max-height: 62vh; overflow: auto; background: #111211; color: #dce6df; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; white-space: pre-wrap; font-family: Consolas, "Microsoft YaHei", monospace; font-size: 12px; }
+    .empty { color: var(--muted); margin: 12px 0 0; }
+    @media (max-width: 850px) {
+      header { position: static; align-items: flex-start; flex-direction: column; padding: 12px 14px; }
+      nav { flex-wrap: wrap; }
+      .layout { grid-template-columns: 1fr; padding: 12px 12px 28px; gap: 12px; }
+      .sidebar-panel { position: static; max-height: none; }
+      .row { grid-template-columns: 1fr; gap: 0; }
+      .target-row, .check-grid { grid-template-columns: 1fr; }
+      .panel { padding: 14px; }
+      .tabs { flex-wrap: wrap; overflow-x: visible; margin-left: -2px; margin-right: -2px; }
+      .tab-button { flex: 1 1 calc(50% - 6px); padding: 9px 10px; text-align: center; }
+      .log { min-height: 260px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>客户端管理</strong>
+    <nav><a href="/">实时对话</a> · <a href="/test-client">测试客户端</a> · <a href="/history">历史</a> · <a href="/knowledge">文档</a></nav>
+  </header>
+  <main class="layout">
+    <section class="panel sidebar-panel">
+      <div class="section-title">
+        <h2>设备列表</h2>
+        <button class="small-action" onclick="loadClients()">刷新</button>
+      </div>
+      <label>管理员 Token</label>
+      <input id="adminToken" type="password" placeholder="如果服务配置了 ADMIN_TOKEN，请填写">
+      <button onclick="saveToken()">保存 Token</button>
+      <button class="danger" onclick="restartService()">重启服务</button>
+      <label><input id="includeOffline" type="checkbox" style="width:auto"> 显示离线会话</label>
+      <div class="client-list" id="clients"></div>
+    </section>
+    <section class="panel">
+      <div class="target-bar">
+        <h2>客户端操作</h2>
+        <div class="target-row">
+          <div>
+            <label>目标设备</label>
+            <select id="sn"></select>
+          </div>
+          <button class="small-action" onclick="loadClients()">刷新设备</button>
+          <button class="small-action danger" onclick="disconnectSelectedClient()">主动断开连接</button>
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="管理功能">
+        <button class="tab-button active" type="button" data-tab="voice" onclick="switchTab('voice')">语音下发</button>
+        <button class="tab-button" type="button" data-tab="llm" onclick="switchTab('llm')">大模型 TTS</button>
+        <button class="tab-button" type="button" data-tab="gateway" onclick="switchTab('gateway')">TTS 测试</button>
+        <button class="tab-button" type="button" data-tab="safe" onclick="switchTab('safe')">安全 TTS</button>
+        <button class="tab-button" type="button" data-tab="cmd" onclick="switchTab('cmd')">设备命令</button>
+        <button class="tab-button" type="button" data-tab="logs" onclick="switchTab('logs')">操作日志</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-voice" role="tabpanel">
+        <div class="tool-block">
+          <div class="tool-head">
+            <div>
+              <h3>发送音频</h3>
+              <p class="tool-note">直接把本地 PCM/WAV/MP3 文件下发到设备 voice 通道，MP3 会自动转为 PCM。</p>
+            </div>
+          </div>
+          <label>PCM/WAV/MP3 文件</label>
+          <input id="pcmFile" type="file" accept=".pcm,.wav,.mp3,audio/*">
+          <div class="check-grid">
+            <label><input id="pcmInterrupt" type="checkbox" checked style="width:auto"> 下发前中断当前语音</label>
+            <label><input id="pcmControlMessages" type="checkbox" checked style="width:auto"> 发送 voice_start / voice_end 控制命令</label>
+          </div>
+          <button class="primary" onclick="sendPcm()">发送音频到设备 voice 通道</button>
+        </div>
+
+        <div class="tool-block">
+          <div class="tool-head">
+            <div>
+              <h3>流式文字转语音</h3>
+              <p class="tool-note">把输入文字同步推送到实时对话页，并合成语音下发设备。</p>
+            </div>
+          </div>
+          <label>大模型流式返回文字</label>
+          <textarea id="ttsText" placeholder="输入要在 Web 端流式展示，并转成语音下发给设备端的文字"></textarea>
+          <div class="row">
+            <div><label>每段字符数</label><input id="chunkChars" type="number" value="8" min="1" max="80"></div>
+            <div><label>间隔毫秒</label><input id="intervalMs" type="number" value="60" min="0" max="2000"></div>
+          </div>
+          <div class="check-grid">
+            <label><input id="streamToWeb" type="checkbox" checked style="width:auto"> 同步在实时对话页流式展示</label>
+            <label><input id="ttsInterrupt" type="checkbox" checked style="width:auto"> 下发前中断当前语音</label>
+            <label><input id="ttsControlMessages" type="checkbox" checked style="width:auto"> 发送 voice_start / voice_end 控制命令</label>
+          </div>
+          <button class="primary" onclick="sendTts()">流式展示并转语音下发</button>
+          <button class="danger" onclick="cancelTts()">中断当前语音</button>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-llm" role="tabpanel">
+        <div class="tool-block">
+          <div class="tool-head">
+            <div>
+              <h3>大模型 + 测试 TTS</h3>
+              <p class="tool-note">先让大模型生成回复，再按短句调用测试 TTS 并串行下发。</p>
+            </div>
+          </div>
+          <label>给大模型的文字</label>
+          <textarea id="llmPrompt" placeholder="输入要交给大模型处理的内容，回复会流式显示并分句转成 PCM 下发"></textarea>
+          <div class="row">
+            <div><label>流式分片字符数</label><input id="llmStreamChars" type="number" value="8" min="1" max="80"></div>
+            <div><label>分句最大字符数</label><input id="llmSentenceChars" type="number" value="36" min="8" max="120"></div>
+          </div>
+          <div class="check-grid">
+            <label><input id="llmTtsInterrupt" type="checkbox" checked style="width:auto"> 下发前中断当前语音</label>
+            <label><input id="llmTtsControlMessages" type="checkbox" checked style="width:auto"> 发送 voice_start / voice_end 控制命令</label>
+          </div>
+          <button class="primary" onclick="runLlmTtsGateway()">提交大模型并分句下发语音</button>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-gateway" role="tabpanel">
+        <div class="tool-block">
+          <div class="tool-head">
+            <div>
+              <h3>TTS 测试服务</h3>
+              <p class="tool-note">验证外部 TTS 网关返回 PCM，成功后可选择发送到目标设备。</p>
+            </div>
+          </div>
+          <label>测试服务 URL</label>
+          <input id="ttsGatewayUrl" value="">
+          <label>测试文字</label>
+          <textarea id="ttsGatewayText">你好，这是一次语音合成测试。</textarea>
+          <div class="row">
+            <div><label>返回格式</label><input id="ttsGatewayFormat" value="pcm"></div>
+            <div><label>Token</label><input id="ttsGatewayToken" placeholder="如服务需要 token 可填写"></div>
+          </div>
+          <div class="check-grid">
+            <label><input id="ttsGatewayVerifySsl" type="checkbox" checked style="width:auto"> 校验 HTTPS 证书</label>
+            <label><input id="ttsGatewaySendDevice" type="checkbox" style="width:auto"> 合成成功后下发到目标设备</label>
+            <label><input id="ttsGatewayInterrupt" type="checkbox" checked style="width:auto"> 下发前中断当前语音</label>
+            <label><input id="ttsGatewayControlMessages" type="checkbox" checked style="width:auto"> 发送 voice_start / voice_end 控制命令</label>
+          </div>
+          <button class="primary" onclick="testTtsGateway()">测试 TTS 服务</button>
+        </div>
+      </div>
+
+
+      <div class="tab-panel" id="tab-safe" role="tabpanel">
+        <div class="tool-block">
+          <div class="tool-head">
+            <div>
+              <h3>安全 TTS 下发（新服务）</h3>
+              <p class="tool-note">独立于原 send-tts 链路：硬中断旧任务、等待 voice_cancel、静音冲刷后再下发，降低中断后杂音风险。不修改原 broadcaster 逻辑。</p>
+            </div>
+          </div>
+          <label>测试文字</label>
+          <textarea id="safeTtsText" placeholder="输入要通过安全 TTS 服务下发的文字">请注意，这是安全 TTS 下发测试。</textarea>
+          <div class="check-grid">
+            <label><input id="safeTtsInterrupt" type="checkbox" checked style="width:auto"> 下发前硬中断当前语音</label>
+            <label><input id="safeTtsControl" type="checkbox" checked style="width:auto"> 发送 voice_start / voice_end / voice_cancel</label>
+            <label><input id="safeTtsFlush" type="checkbox" checked style="width:auto"> 开始前静音冲刷</label>
+          </div>
+          <div class="row">
+            <button class="primary" onclick="sendSafeTtsText()">安全下发文字 TTS</button>
+            <button onclick="querySafeTtsStatus()">查看安全 TTS 状态</button>
+            <button class="danger" onclick="cancelSafeTts()">安全中断</button>
+          </div>
+        </div>
+
+        <div class="tool-block">
+          <div class="tool-head">
+            <div>
+              <h3>安全下发本地音频</h3>
+              <p class="tool-note">支持 PCM/WAV/MP3，走 /api/safe-tts/send-pcm。</p>
+            </div>
+          </div>
+          <label>PCM/WAV/MP3 文件</label>
+          <input id="safePcmFile" type="file" accept=".pcm,.wav,.mp3,audio/*">
+          <button class="primary" onclick="sendSafePcm()">安全发送音频</button>
+        </div>
+
+        <div class="tool-block">
+          <div class="tool-head">
+            <div>
+              <h3>安全下发网关 TTS</h3>
+              <p class="tool-note">先调外部 TTS 网关合成，再走安全下发链路。</p>
+            </div>
+          </div>
+          <label>网关 URL</label>
+          <input id="safeGatewayUrl" value="">
+          <label>Token（可选）</label>
+          <input id="safeGatewayToken" placeholder="网关 token">
+          <div class="row">
+            <div><label>response_format</label><input id="safeGatewayFormat" value="pcm"></div>
+            <div><label><input id="safeGatewaySsl" type="checkbox" checked style="width:auto"> 校验证书</label></div>
+          </div>
+          <button class="primary" onclick="sendSafeGateway()">网关合成 + 安全下发</button>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-cmd" role="tabpanel">
+        <div class="tool-block">
+          <div class="tool-head">
+            <div>
+              <h3>设备命令</h3>
+              <p class="tool-note">兼容 websocket-cmd.py 的常用命令和自定义 JSON 命令。</p>
+            </div>
+          </div>
+          <div class="row">
+            <button onclick="sendPresetCmd('start_pcm', 11)">录音启动</button>
+            <button onclick="sendPresetCmd('stop_pcm', 12)">录音停止</button>
+            <button onclick="sendPresetCmd('start_h264', 21)">录像启动</button>
+            <button onclick="sendPresetCmd('stop_h264', 22)">录像停止</button>
+            <button onclick="sendPresetCmd('snap_jpeg', 33)">截图</button>
+            <button class="danger" onclick="sendPresetCmd('reboot', 44)">重启</button>
+          </div>
+          <button onclick="broadcastUptime()">广播时间</button>
+          <label>自定义 cmd JSON</label>
+          <textarea id="customCmd" placeholder='{"cmd":"uptime","msgid":55}'></textarea>
+          <button onclick="sendCustomCmd()">发送自定义命令到目标设备</button>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-logs" role="tabpanel">
+        <h3>操作日志</h3>
+        <div class="log" id="log"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let selectedSn = "";
+    adminToken.value = localStorage.getItem("helmet_admin_token") || "";
+    includeOffline.checked = localStorage.getItem("helmet_include_offline") === "1";
+
+    function saveToken() {
+      localStorage.setItem("helmet_admin_token", adminToken.value.trim());
+      writeLog("管理员 Token 已保存到当前浏览器");
+      loadClients();
+    }
+
+    function authHeaders(extra = {}) {
+      const token = adminToken.value.trim();
+      return token ? {...extra, Authorization: `Bearer ${token}`} : extra;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;",
+      }[ch]));
+    }
+
+    function writeLog(text) {
+      const now = new Date().toLocaleTimeString();
+      log.textContent += `[${now}] ${text}\n`;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function switchTab(tabName) {
+      localStorage.setItem("helmet_admin_tab", tabName);
+      document.querySelectorAll(".tab-button").forEach(button => {
+        const active = button.dataset.tab === tabName;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+      });
+      document.querySelectorAll(".tab-panel").forEach(panel => {
+        panel.classList.toggle("active", panel.id === `tab-${tabName}`);
+      });
+    }
+
+    async function loadClients() {
+      localStorage.setItem("helmet_include_offline", includeOffline.checked ? "1" : "0");
+      const query = includeOffline.checked ? "?include_offline=true" : "";
+      const res = await fetch(`/api/admin/clients${query}`, {headers: authHeaders()});
+      if (!res.ok) {
+        writeLog("刷新客户端失败：" + await res.text());
+        return;
+      }
+      const data = await res.json();
+      const rows = data.clients || [];
+      clients.innerHTML = rows.map(renderClient).join("") || "<p class=\"empty\">暂无客户端连接</p>";
+      clients.querySelectorAll(".client").forEach(el => {
+        el.addEventListener("click", () => selectClient(el.dataset.sn));
+      });
+      clients.querySelectorAll("[data-disconnect-sn]").forEach(button => {
+        button.addEventListener("click", event => {
+          event.stopPropagation();
+          selectClient(button.dataset.disconnectSn);
+          disconnectSelectedClient(button.dataset.disconnectSn);
+        });
+      });
+      const previous = selectedSn || sn.value;
+      sn.innerHTML = rows.map(x => `<option value="${escapeHtml(x.sn)}">${escapeHtml(x.sn)} · voice:${x.voice_connected ? "connected" : "off"}</option>`).join("");
+      if (previous && rows.some(x => x.sn === previous)) {
+        selectedSn = previous;
+        sn.value = previous;
+      } else if (rows[0]) {
+        selectedSn = rows[0].sn;
+        sn.value = selectedSn;
+      } else {
+        selectedSn = "";
+        sn.value = "";
+      }
+      markActive();
+    }
+
+    function renderClient(item) {
+      const dialogUrl = `/client/${encodeURIComponent(item.sn)}`;
+      return `<div class="client" data-sn="${escapeHtml(item.sn)}">
+        <div class="client-head">
+          <div class="client-sn">${escapeHtml(item.sn)}</div>
+          <div class="client-actions">
+            <a class="client-link" href="${dialogUrl}" target="_blank" onclick="event.stopPropagation()">实时对话</a>
+            <button class="client-disconnect" type="button" data-disconnect-sn="${escapeHtml(item.sn)}">断开</button>
+            <span class="status ${item.online ? "ok" : "bad"}">${item.online ? "在线" : "离线"}</span>
+          </div>
+        </div>
+        <div>
+          <span class="status ${item.cmd_connected ? "ok" : "bad"}">cmd ${item.cmd_connected ? "connected" : "off"}</span>
+          <span class="status ${item.voice_connected ? "ok" : "bad"}">voice ${item.voice_connected ? "connected" : "off"}</span>
+          <span class="status">web ${escapeHtml(item.web_clients)}</span>
+        </div>
+        <p class="client-meta">任务：${escapeHtml(item.current_task || "-")} / ${escapeHtml(item.task_state || "-")}</p>
+        <div class="client-meta">${escapeHtml(item.last_agent_reply || "")}</div>
+      </div>`;
+    }
+
+    function selectClient(value) {
+      selectedSn = value;
+      sn.value = value;
+      markActive();
+    }
+
+    function markActive() {
+      document.querySelectorAll(".client").forEach(el => {
+        el.classList.toggle("active", el.dataset.sn === sn.value);
+      });
+    }
+
+    async function sendPcm() {
+      if (!sn.value) return writeLog("请选择目标设备");
+      if (!pcmFile.files[0]) return writeLog("请选择 PCM/WAV/MP3 文件");
+      const form = new FormData();
+      form.append("sn", sn.value);
+      form.append("file", pcmFile.files[0]);
+      form.append("interrupt_current", pcmInterrupt.checked ? "true" : "false");
+      form.append("send_control_messages", pcmControlMessages.checked ? "true" : "false");
+      const res = await fetch("/api/admin/send-pcm", { method: "POST", headers: authHeaders(), body: form });
+      const text = await res.text();
+      writeLog(res.ok ? `PCM 下发成功：${text}` : `PCM 下发失败：${text}`);
+      await loadClients();
+    }
+
+    async function sendTts() {
+      if (!sn.value) return writeLog("请选择目标设备");
+      if (!ttsText.value.trim()) return writeLog("请输入文字");
+      const payload = {
+        sn: sn.value,
+        text: ttsText.value,
+        stream_to_web: streamToWeb.checked,
+        chunk_chars: Number(chunkChars.value || 8),
+        interval_ms: Number(intervalMs.value || 60),
+        interrupt_current: ttsInterrupt.checked,
+        send_control_messages: ttsControlMessages.checked,
+      };
+      const res = await fetch("/api/admin/send-tts", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      writeLog(res.ok ? `TTS 下发成功：${text}` : `TTS 下发失败：${text}`);
+      await loadClients();
+    }
+
+    async function cancelTts() {
+      if (!sn.value) return writeLog("请选择目标设备");
+      const res = await fetch("/api/admin/cancel-tts", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify({sn: sn.value, reason: "admin_cancel"}),
+      });
+      writeLog(res.ok ? "已发送语音中断命令" : "语音中断失败：" + await res.text());
+    }
+
+
+    async function sendSafeTtsText() {
+      if (!sn.value) return writeLog("请先选择设备 sn");
+      const payload = {
+        sn: sn.value,
+        text: safeTtsText.value.trim(),
+        interrupt_current: safeTtsInterrupt.checked,
+        send_control_messages: safeTtsControl.checked,
+        flush_before_start: safeTtsFlush.checked,
+        reason: "admin_safe_tts_text",
+      };
+      if (!payload.text) return writeLog("安全 TTS 文字为空");
+      const res = await fetch("/api/safe-tts/send-text", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const body = await res.text();
+      writeLog(res.ok ? ("安全TTS文字下发：" + body) : ("安全TTS文字失败：" + body));
+      await loadClients();
+    }
+
+    async function sendSafePcm() {
+      if (!sn.value) return writeLog("请先选择设备 sn");
+      if (!safePcmFile.files.length) return writeLog("请选择音频文件");
+      const form = new FormData();
+      form.append("sn", sn.value);
+      form.append("file", safePcmFile.files[0]);
+      form.append("text", safePcmFile.files[0].name);
+      form.append("interrupt_current", safeTtsInterrupt.checked ? "true" : "false");
+      form.append("send_control_messages", safeTtsControl.checked ? "true" : "false");
+      form.append("reason", "admin_safe_tts_pcm");
+      const res = await fetch("/api/safe-tts/send-pcm", {method: "POST", headers: authHeaders(), body: form});
+      const body = await res.text();
+      writeLog(res.ok ? ("安全TTS音频下发：" + body) : ("安全TTS音频失败：" + body));
+      await loadClients();
+    }
+
+    async function sendSafeGateway() {
+      if (!sn.value) return writeLog("请先选择设备 sn");
+      const payload = {
+        sn: sn.value,
+        text: safeTtsText.value.trim() || "你好，这是一次安全 TTS 下发测试。",
+        url: safeGatewayUrl.value.trim(),
+        token: safeGatewayToken.value.trim(),
+        response_format: safeGatewayFormat.value.trim() || "pcm",
+        verify_ssl: safeGatewaySsl.checked,
+        interrupt_current: safeTtsInterrupt.checked,
+        send_control_messages: safeTtsControl.checked,
+        flush_before_start: safeTtsFlush.checked,
+        reason: "admin_safe_tts_gateway",
+      };
+      const res = await fetch("/api/safe-tts/send-gateway", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const body = await res.text();
+      writeLog(res.ok ? ("安全TTS网关下发：" + body) : ("安全TTS网关失败：" + body));
+      await loadClients();
+    }
+
+    async function cancelSafeTts() {
+      if (!sn.value) return writeLog("请先选择设备 sn");
+      const res = await fetch("/api/safe-tts/cancel", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify({
+          sn: sn.value,
+          reason: "admin_safe_tts_cancel",
+          flush_silence: safeTtsFlush.checked,
+          send_control: safeTtsControl.checked,
+        }),
+      });
+      const body = await res.text();
+      writeLog(res.ok ? ("安全TTS中断：" + body) : ("安全TTS中断失败：" + body));
+      await loadClients();
+    }
+
+    async function querySafeTtsStatus() {
+      if (!sn.value) return writeLog("请先选择设备 sn");
+      const res = await fetch("/api/safe-tts/status/" + encodeURIComponent(sn.value), {headers: authHeaders()});
+      const body = await res.text();
+      writeLog(res.ok ? ("安全TTS状态：" + body) : ("安全TTS状态失败：" + body));
+    }
+
+    async function disconnectSelectedClient(targetSn = sn.value) {
+      targetSn = (targetSn || "").trim();
+      if (!targetSn) return writeLog("请选择目标设备");
+      if (!window.confirm(`确认断开设备 ${targetSn} 的连接？`)) return;
+
+      const res = await fetch("/api/admin/disconnect-client", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify({sn: targetSn, reason: "admin_disconnect"}),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        writeLog(`断开连接失败：${text}`);
+        await loadClients();
+        return;
+      }
+      try {
+        const data = JSON.parse(text);
+        const cmdStatus = data.cmd_connected ? (data.command_sent ? "已通知并关闭" : "已关闭") : "未连接";
+        const voiceStatus = data.voice_connected ? "已关闭" : "未连接";
+        writeLog(`已主动断开连接：${data.sn}，cmd ${cmdStatus}，voice ${voiceStatus}，web ${data.web_clients}`);
+      } catch {
+        writeLog(`已主动断开连接：${text}`);
+      }
+      await loadClients();
+    }
+
+    async function restartService() {
+      if (!window.confirm("确认重启服务？当前设备连接会断开。")) return;
+
+      const res = await fetch("/api/admin/restart-service", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify({reason: "admin_restart"}),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        writeLog(`重启服务失败：${text}`);
+        return;
+      }
+
+      writeLog(`服务重启请求已发送：${text}`);
+      window.setTimeout(() => window.location.reload(), 6000);
+    }
+
+    async function testTtsGateway() {
+      if (ttsGatewaySendDevice.checked && !sn.value) return writeLog("请选择目标设备");
+      const payload = {
+        url: ttsGatewayUrl.value.trim(),
+        text: ttsGatewayText.value,
+        token: ttsGatewayToken.value.trim(),
+        response_format: ttsGatewayFormat.value.trim() || "pcm",
+        verify_ssl: ttsGatewayVerifySsl.checked,
+        send_to_device: ttsGatewaySendDevice.checked,
+        sn: sn.value || null,
+        interrupt_current: ttsGatewayInterrupt.checked,
+        send_control_messages: ttsGatewayControlMessages.checked,
+      };
+      const res = await fetch("/api/admin/test-tts-gateway", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        writeLog(`TTS 测试失败：${text}`);
+        return;
+      }
+      try {
+        const data = JSON.parse(text);
+        writeLog(`TTS 测试成功：${data.bytes} bytes，文件 ${data.url}`);
+      } catch {
+        writeLog(`TTS 测试成功：${text}`);
+      }
+      await loadClients();
+    }
+
+    async function runLlmTtsGateway() {
+      if (!sn.value) return writeLog("请选择目标设备");
+      if (!llmPrompt.value.trim()) return writeLog("请输入给大模型的文字");
+      const payload = {
+        sn: sn.value,
+        prompt: llmPrompt.value,
+        url: ttsGatewayUrl.value.trim(),
+        token: ttsGatewayToken.value.trim(),
+        response_format: ttsGatewayFormat.value.trim() || "pcm",
+        verify_ssl: ttsGatewayVerifySsl.checked,
+        max_sentence_chars: Number(llmSentenceChars.value || 36),
+        stream_chunk_chars: Number(llmStreamChars.value || 8),
+        stream_interval_ms: Number(intervalMs.value || 60),
+        interrupt_current: llmTtsInterrupt.checked,
+        send_control_messages: llmTtsControlMessages.checked,
+      };
+      const res = await fetch("/api/admin/llm-tts-gateway", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        writeLog(`大模型+TTS 下发失败：${text}`);
+        return;
+      }
+      try {
+        const data = JSON.parse(text);
+        writeLog(`大模型+TTS 下发成功：${data.sentences.length} 段，${data.bytes} bytes`);
+      } catch {
+        writeLog(`大模型+TTS 下发成功：${text}`);
+      }
+      await loadClients();
+    }
+
+    async function sendPresetCmd(cmd, msgid) {
+      await sendDeviceCmd({cmd, msgid});
+    }
+
+    async function sendDeviceCmd(command) {
+      if (!sn.value) return writeLog("请选择目标设备");
+      const payload = {
+        sn: sn.value,
+        cmd: command.cmd,
+        msgid: command.msgid,
+        payload: {...command},
+      };
+      delete payload.payload.cmd;
+      delete payload.payload.msgid;
+      const res = await fetch("/api/admin/send-cmd", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      writeLog(res.ok ? `命令下发成功：${text}` : `命令下发失败：${text}`);
+      await loadClients();
+    }
+
+    async function broadcastUptime() {
+      const payload = {
+        cmd: "uptime",
+        msgid: 55,
+        payload: {time: new Date().toLocaleString()},
+      };
+      const res = await fetch("/api/admin/broadcast-cmd", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      writeLog(res.ok ? `广播成功：${text}` : `广播失败：${text}`);
+      await loadClients();
+    }
+
+    async function sendCustomCmd() {
+      let command;
+      try {
+        command = JSON.parse(customCmd.value.trim());
+      } catch (err) {
+        return writeLog("自定义命令不是合法 JSON");
+      }
+      if (!command || !command.cmd) return writeLog("自定义命令必须包含 cmd");
+      await sendDeviceCmd(command);
+    }
+
+    sn.addEventListener("change", () => { selectedSn = sn.value; markActive(); });
+    includeOffline.addEventListener("change", loadClients);
+    switchTab(localStorage.getItem("helmet_admin_tab") || "voice");
+    loadClients();
+    setInterval(loadClients, 3000);
+  </script>
+</body>
+</html>

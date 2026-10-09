@@ -1,0 +1,42 @@
+{
+  "steps": {
+    "helmet_start": {
+      "step_title": "场景1：班组长戴上智能头盔",
+      "scene": "场景1",
+      "title": "班组长戴上智能头盔",
+      "text": "展示开始：深圳歌剧院工地，班组长佩戴智能头盔。"
+    },
+    "agent_flow": {
+      "step_title": "Agent 播报检查流程",
+      "scene": "场景2",
+      "title": "小班副播报检查流程",
+      "text": "Web端展示7项检查内容，设备端接收TTS。"
+    },
+    "photo_prompt": {
+      "step_title": "提示拍照上传",
+      "scene": "场景2",
+      "title": "提示拍照上传",
+      "text": "请前往需检查的三级配电箱线路现场，并拍摄图像上传"
+    },
+    "analysis": {
+      "step_title": "分析现场隐患",
+      "scene": "场景3",
+      "title": "分析现场隐患",
+      "text": "Agent正在结合现场图像分析是否存在隐患。"
+    },
+    "rectification_advice": {
+      "step_title": "播报整改建议",
+      "scene": "场景3",
+      "title": "播报整改建议",
+      "text": "Web端显示隐患内容和整改建议，设备端接收TTS。"
+    },
+    "rectification_image": {
+      "step_title": "显示整改后图片",
+      "scene": "场景3",
+      "title": "整改后现场图片",
+      "text": "收到，我们会立即整改，谢谢！整改后现场图片已显示。",
+      "image_url": "",
+      "image_role": "device"
+    }
+  }
+}

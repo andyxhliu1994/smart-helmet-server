@@ -1,0 +1,17 @@
+测试前复制 .env.example 为 .env，并在本地填写模型网关地址和令牌。
+真实地址、令牌、内网文件地址和个人目录不得写入源码或提交到 Git。
+
+启动服务：
+python -m uvicorn app.main:app --host 127.0.0.1 --port 18787
+
+浏览器测试客户端：
+http://127.0.0.1:18787/test-client
+
+命令行演示客户端：
+python tools/demo_client.py --server http://127.0.0.1:18787 --sn rv1126b
+
+独立模型测试：
+- test_tts.py 从 TTS_GATEWAY_URL / TTS_GATEWAY_TOKEN 读取配置。
+- test_llm.py 从 LLM_BASE_URL / LLM_API_KEY / TEST_IMAGE_URL 读取配置。
+
+测试输出文件、截图、录音和日志应保存在 Git 忽略目录中。

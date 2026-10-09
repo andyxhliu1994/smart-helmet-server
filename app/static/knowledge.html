@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>本地文档管理</title>
+  <style>
+    body { margin: 0; font-family: Arial, "Microsoft YaHei", sans-serif; background: #f3f5f7; color: #1f2933; }
+    header { background: #fff; border-bottom: 1px solid #dce4ea; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+    a { color: #2764d8; text-decoration: none; }
+    .layout { display: grid; grid-template-columns: 320px 1fr; gap: 16px; padding: 16px; }
+    .panel { background: #fff; border: 1px solid #dce4ea; border-radius: 8px; padding: 14px; }
+    .item { border-bottom: 1px solid #edf1f5; padding: 10px; cursor: pointer; }
+    .item:hover { background: #f8fafc; }
+    label { display: block; font-size: 13px; margin-top: 10px; color: #52616f; }
+    input, textarea { width: 100%; padding: 8px; border: 1px solid #cbd5df; border-radius: 6px; font: inherit; }
+    textarea { min-height: 90px; }
+    button { border: 1px solid #cbd5df; background: #fff; border-radius: 6px; padding: 8px 10px; margin-top: 10px; cursor: pointer; }
+    .primary { background: #1f7a5b; border-color: #1f7a5b; color: #fff; }
+    .danger { color: #b42318; }
+    .muted { color: #6b7280; font-size: 13px; }
+    .tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #eef2f7; color: #52616f; font-size: 12px; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header><strong>本地文档管理</strong><nav><a href="/">实时对话</a> · <a href="/history">历史对话</a> · <a href="/admin">客户端管理</a></nav></header>
+  <div class="layout">
+    <section class="panel">
+      <button class="primary" onclick="newFlow()">新增流程</button>
+      <button onclick="loadFlows()">重新加载</button>
+      <div id="list"></div>
+    </section>
+    <section class="panel">
+      <h2 id="formTitle">编辑流程</h2>
+      <p id="sourceHint" class="muted"></p>
+      <label>ID</label><input id="id">
+      <label>名称</label><input id="name">
+      <label>启用</label><input id="enabled" type="checkbox" checked>
+      <label>关键词，每行一个</label><textarea id="keywords"></textarea>
+      <label>检查流程，每行一条</label><textarea id="flow"></textarea>
+      <label>TTS 回复</label><textarea id="tts"></textarea>
+      <button class="primary" onclick="saveFlow()">保存</button>
+      <button class="danger" onclick="deleteFlow()">删除</button>
+      <p id="msg"></p>
+    </section>
+  </div>
+  <script>
+    let current = null;
+    let currentSource = null;
+    async function loadFlows() {
+      const rows = await fetch("/api/knowledge/flows").then(r => r.json());
+      document.getElementById("list").innerHTML = rows.map(x => {
+        const source = x.source === "docx_section" ? "文档" : "手工";
+        return `<div class="item" onclick='edit(${JSON.stringify(x)})'><b>${x.name}</b><span class="tag">${source}</span><br><small>${x.enabled ? "启用" : "停用"} · ${(x.keywords || []).join(" / ")}</small></div>`;
+      }).join("");
+    }
+    function edit(flow) {
+      current = flow.id;
+      currentSource = flow.source || "manual";
+      id.value = flow.id; name.value = flow.name; enabled.checked = !!flow.enabled;
+      keywords.value = (flow.keywords || []).join("\n");
+      document.getElementById("flow").value = (flow.flow || []).join("\n");
+      tts.value = flow.tts_reply || "";
+      sourceHint.textContent = currentSource === "docx_section"
+        ? "该流程来自 docx 文档，保存时会另存为一条可编辑流程。"
+        : "该流程为可编辑流程。";
+    }
+    function newFlow() {
+      current = null; currentSource = null; id.value = ""; name.value = ""; enabled.checked = true; keywords.value = ""; flow.value = ""; tts.value = ""; sourceHint.textContent = "";
+    }
+    function payload() {
+      return { id: id.value || undefined, name: name.value, enabled: enabled.checked, keywords: keywords.value.split("\n").filter(Boolean), flow: flow.value.split("\n").filter(Boolean), tts_reply: tts.value };
+    }
+    async function saveFlow() {
+      const copyFromDocx = currentSource === "docx_section";
+      const url = current && !copyFromDocx ? `/api/knowledge/flows/${current}` : "/api/knowledge/flows";
+      const method = current && !copyFromDocx ? "PUT" : "POST";
+      const body = payload();
+      if (copyFromDocx && body.id && body.id.startsWith("docx_")) body.id = undefined;
+      const res = await fetch(url, { method, headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) });
+      msg.textContent = res.ok ? "保存成功" : "保存失败：" + (await res.text());
+      if (res.ok) {
+        const saved = await res.json();
+        edit(saved);
+      }
+      await loadFlows();
+    }
+    async function deleteFlow() {
+      if (!current || !confirm("确认删除？")) return;
+      if (currentSource === "docx_section") {
+        msg.textContent = "文档解析流程不能在这里删除，请修改源 docx 后重新加载。";
+        return;
+      }
+      await fetch(`/api/knowledge/flows/${current}`, { method: "DELETE" });
+      newFlow(); await loadFlows();
+    }
+    loadFlows();
+  </script>
+</body>
+</html>

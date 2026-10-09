@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>客户端管理 · 明亮卡片</title>
+  <style>
+    :root {
+      --bg: #eef2f7;
+      --bg-grad-1: #e8eef6;
+      --bg-grad-2: #f4f1fb;
+      --card: #ffffff;
+      --card-soft: #f7f9fc;
+      --line: #e3e8ef;
+      --line-soft: #eef1f6;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --muted-2: #9aa3af;
+      --primary: #4f6ef7;
+      --primary-strong: #3b5bf0;
+      --primary-soft: #eaeefe;
+      --accent: #14b8a6;
+      --accent-soft: #e2f7f3;
+      --warn: #f59e0b;
+      --warn-soft: #fef3da;
+      --danger: #ef4444;
+      --danger-soft: #fdeaea;
+      --ok: #22c55e;
+      --ok-soft: #e6f8ec;
+      --radius: 18px;
+      --radius-sm: 12px;
+      --shadow-sm: 0 1px 3px rgba(31, 41, 55, .06), 0 1px 2px rgba(31, 41, 55, .04);
+      --shadow: 0 10px 30px rgba(31, 41, 55, .08), 0 2px 8px rgba(31, 41, 55, .04);
+      --shadow-lg: 0 20px 48px rgba(31, 41, 55, .12);
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      line-height: 1.55;
+      min-height: 100vh;
+      background:
+        radial-gradient(680px 420px at 8% -8%, rgba(79, 110, 247, .10), transparent 60%),
+        radial-gradient(640px 460px at 100% 0%, rgba(20, 184, 166, .09), transparent 58%),
+        linear-gradient(165deg, var(--bg-grad-1), var(--bg-grad-2));
+      background-repeat: no-repeat;
+    }
+
+    header {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; justify-content: space-between; align-items: center; gap: 16px;
+      padding: 14px 26px;
+      background: rgba(255, 255, 255, .82);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    header .brand { display: flex; align-items: center; gap: 12px; }
+    header .dot {
+      width: 11px; height: 11px; border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 0 4px var(--ok-soft);
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+    header strong { font-size: 19px; font-weight: 700; color: #111827; letter-spacing: .2px; }
+    nav { display: flex; align-items: center; gap: 10px; color: var(--muted-2); font-size: 14px; }
+    a { color: var(--primary); text-decoration: none; transition: color .15s ease; }
+    a:hover { color: var(--primary-strong); }
+
+    h2, h3 { color: #111827; line-height: 1.25; }
+    h2 { margin: 0 0 12px; font-size: 19px; font-weight: 700; }
+    h3 { margin: 22px 0 10px; font-size: 15px; font-weight: 700; color: #374151; }
+    h3:first-child { margin-top: 0; }
+    p { margin: 8px 0; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(300px, 370px) minmax(0, 1fr);
+      gap: 22px;
+      width: min(1480px, 100%);
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    .sidebar-panel { align-self: start; position: sticky; top: 86px; max-height: calc(100vh - 108px); overflow: auto; }
+
+    .section-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+    .section-title h2 { margin: 0; }
+    .small-action { width: auto; padding: 8px 16px; margin-top: 0; font-size: 13px; }
+
+    .client-list { display: grid; gap: 12px; margin-top: 16px; }
+    .client {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      cursor: pointer;
+      background: var(--card);
+      box-shadow: var(--shadow-sm);
+      transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+    }
+    .client:hover { border-color: #c8d2f7; transform: translateY(-2px); box-shadow: var(--shadow); }
+    .client.active {
+      border-color: var(--primary);
+      background: linear-gradient(180deg, var(--primary-soft), #ffffff 70%);
+      box-shadow: 0 0 0 3px rgba(79, 110, 247, .14), var(--shadow);
+    }
+    .client > b { font-size: 14px; color: #111827; overflow-wrap: anywhere; }
+    .client p { color: var(--muted); font-size: 13px; margin: 10px 0 4px; }
+    .client small { color: var(--muted-2); font-size: 12px; overflow-wrap: anywhere; }
+
+    .status {
+      display: inline-flex; align-items: center;
+      border-radius: 999px; padding: 3px 11px; font-size: 12px; font-weight: 600;
+      margin: 9px 6px 0 0;
+      background: #f1f3f7; color: #4b5563;
+      border: 1px solid var(--line);
+    }
+    .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--muted-2); margin-right: 7px; }
+    .ok { background: var(--ok-soft); color: #15803d; border-color: #c4ecd0; }
+    .ok::before { background: var(--ok); }
+    .bad { background: var(--danger-soft); color: #b91c1c; border-color: #f6cccc; }
+    .bad::before { background: var(--danger); }
+
+    label { display: block; font-size: 13px; margin-top: 15px; color: var(--muted); font-weight: 500; }
+    label input[type="checkbox"] { margin-right: 8px; vertical-align: -2px; accent-color: var(--primary); }
+
+    input, textarea, select, button {
+      width: 100%; padding: 11px 13px;
+      border: 1px solid var(--line);
+      border-radius: 10px; font: inherit;
+      background: #ffffff;
+      color: var(--text); outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    input::placeholder, textarea::placeholder { color: #b6bdc8; }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 110, 247, .15);
+    }
+    input[type="file"] { padding: 9px; background: var(--card-soft); }
+    input[type="file"]::file-selector-button {
+      margin-right: 11px; border: 1px solid var(--line); border-radius: 8px;
+      padding: 8px 13px; background: #ffffff; color: var(--text); cursor: pointer; font-weight: 600;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    input[type="file"]::file-selector-button:hover { border-color: var(--primary); background: var(--primary-soft); }
+    textarea { min-height: 120px; resize: vertical; }
+
+    button {
+      cursor: pointer; margin-top: 12px;
+      background: #ffffff;
+      border-color: var(--line);
+      color: var(--text); font-weight: 600;
+      box-shadow: var(--shadow-sm);
+      transition: border-color .15s ease, background .15s ease, transform .08s ease, box-shadow .15s ease;
+    }
+    button:hover { border-color: #c8d2f7; background: var(--card-soft); box-shadow: var(--shadow); }
+    button:active { transform: translateY(1px); }
+    .primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+      border-color: transparent;
+      color: #ffffff; font-weight: 700;
+      box-shadow: 0 8px 20px rgba(79, 110, 247, .28);
+    }
+    .primary:hover { background: linear-gradient(135deg, #5a78f8, #4862f2); box-shadow: 0 10px 26px rgba(79, 110, 247, .36); }
+    .danger {
+      color: #b91c1c;
+      border-color: #f0c4c4;
+      background: var(--danger-soft);
+    }
+    .danger:hover { background: #fbdede; border-color: var(--danger); box-shadow: 0 8px 20px rgba(239, 68, 68, .2); }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    .target-bar {
+      margin-bottom: 18px; padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: linear-gradient(180deg, var(--card-soft), #ffffff);
+    }
+    .target-bar h2 { margin-bottom: 6px; }
+    .target-bar label { margin-top: 12px; }
+
+    .tabs {
+      display: flex; gap: 6px; margin: 0 0 20px;
+      overflow-x: auto; padding: 5px;
+      background: var(--card-soft);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+    }
+    .tab-button {
+      width: auto; flex: 0 0 auto; margin-top: 0;
+      padding: 10px 17px; white-space: nowrap;
+      color: var(--muted); background: transparent; border-color: transparent;
+      border-radius: 9px; box-shadow: none; font-weight: 600;
+    }
+    .tab-button:hover { background: #ffffff; border-color: transparent; box-shadow: var(--shadow-sm); }
+    .tab-button.active {
+      background: #ffffff;
+      border: 1px solid var(--line);
+      color: var(--primary-strong); font-weight: 700;
+      box-shadow: var(--shadow-sm);
+    }
+    .tab-panel { display: none; animation: fade .25s ease; }
+    .tab-panel.active { display: block; }
+    @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    .form-divider { height: 1px; margin: 20px 0 0; background: var(--line-soft); }
+
+    .log {
+      min-height: 360px; max-height: 62vh; overflow: auto;
+      background: #0f172a;
+      color: #cbd5e1;
+      border: 1px solid #1e293b;
+      border-radius: var(--radius-sm);
+      padding: 15px;
+      white-space: pre-wrap;
+      font-family: Consolas, "Microsoft YaHei", monospace;
+      font-size: 12px;
+    }
+    .empty { color: var(--muted); margin: 12px 0 0; }
+
+    ::-webkit-scrollbar { width: 9px; height: 9px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd2dd; border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #aeb7c6; }
+
+    @media (max-width: 850px) {
+      header { position: static; align-items: flex-start; flex-direction: column; padding: 12px 16px; }
+      nav { flex-wrap: wrap; }
+      .layout { grid-template-columns: 1fr; padding: 14px; gap: 14px; }
+      .sidebar-panel { position: static; max-height: none; }
+      .row { grid-template-columns: 1fr; gap: 0; }
+      .panel { padding: 16px; }
+      .tabs { margin-left: -2px; margin-right: -2px; }
+      .tab-button { padding: 10px 13px; }
+      .log { min-height: 260px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="dot"></span>
+      <strong>客户端管理</strong>
+    </div>
+    <nav><a href="/">实时对话</a> · <a href="/history">历史</a> · <a href="/knowledge">文档</a></nav>
+  </header>
+  <main class="layout">
+    <section class="panel sidebar-panel">
+      <div class="section-title">
+        <h2>设备列表</h2>
+        <button class="small-action" onclick="loadClients()">刷新</button>
+      </div>
+      <label>管理员 Token</label>
+      <input id="adminToken" type="password" placeholder="如果服务配置了 ADMIN_TOKEN，请填写">
+      <button onclick="saveToken()">保存 Token</button>
+      <label><input id="includeOffline" type="checkbox" style="width:auto"> 显示离线会话</label>
+      <div class="client-list" id="clients"></div>
+    </section>
+    <section class="panel">
+      <div class="target-bar">
+        <h2>客户端操作</h2>
+        <label>目标设备</label>
+        <select id="sn"></select>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="管理功能">
+        <button class="tab-button active" type="button" data-tab="voice" onclick="switchTab('voice')">语音下发</button>
+        <button class="tab-button" type="button" data-tab="llm" onclick="switchTab('llm')">大模型 TTS</button>
+        <button class="tab-button" type="button" data-tab="gateway" onclick="switchTab('gateway')">TTS 测试</button>
+        <button class="tab-button" type="button" data-tab="cmd" onclick="switchTab('cmd')">设备命令</button>
+        <button class="tab-button" type="button" data-tab="logs" onclick="switchTab('logs')">操作日志</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-voice" role="tabpanel">
+        <h3>发送 PCM</h3>
+        <label>PCM/WAV 文件</label>
+        <input id="pcmFile" type="file" accept=".pcm,.wav,audio/*">
+        <label><input id="pcmInterrupt" type="checkbox" checked style="width:auto"> 下发前中断当前语音</label>
+        <label><input id="pcmControlMessages" type="checkbox" checked style="width:auto"> 发送 voice_start / voice_end 控制命令</label>
+        <button class="primary" onclick="sendPcm()">发送 PCM 到设备 voice 通道</button>
+
+        <h3>流式文字转语音</h3>
+        <label>大模型流式返回文字</label>
+        <textarea id="ttsText" placeholder="输入要在 Web 端流式展示，并转成语音下发给设备端的文字"></textarea>
+        <div class="row">
+          <div><label>每段字符数</label><input id="chunkChars" type="number" value="8" min="1" max="80"></div>
+          <div><label>间隔毫秒</label><input id="intervalMs" type="number" value="60" min="0" max="2000"></div>
+        </div>
+        <label><input id="streamToWeb" type="checkbox" checked style="width:auto"> 同步在实时对话页流式展示</label>
+        <label><input id="ttsInterrupt" type="checkbox" checked style="width:auto"> 下发前中断当前语音</label>
+        <label><input id="ttsControlMessages" type="checkbox" checked style="width:auto"> 发送 voice_start / voice_end 控制命令</label>
+        <button class="primary" onclick="sendTts()">流式展示并转语音下发</button>
+        <button class="danger" onclick="cancelTts()">中断当前语音</button>
+      </div>
+
+      <div class="tab-panel" id="tab-llm" role="tabpanel">
+        <h3>大模型 + 测试 TTS</h3>
+        <label>给大模型的文字</label>
+        <textarea id="llmPrompt" placeholder="输入要交给大模型处理的内容，回复会流式显示并分句转成 PCM 下发"></textarea>
+        <div class="row">
+          <div><label>流式分片字符数</label><input id="llmStreamChars" type="number" value="8" min="1" max="80"></div>
+          <div><label>分句最大字符数</label><input id="llmSentenceChars" type="number" value="36" min="8" max="120"></div>
+        </div>
+        <label><input id="llmTtsInterrupt" type="checkbox" checked style="width:auto"> 下发前中断当前语音</label>
+        <label><input id="llmTtsControlMessages" type="checkbox" checked style="width:auto"> 发送 voice_start / voice_end 控制命令</label>
+        <button class="primary" onclick="runLlmTtsGateway()">提交大模型并分句下发语音</button>
+      </div>
+
+      <div class="tab-panel" id="tab-gateway" role="tabpanel">
+        <h3>TTS 测试服务</h3>
+        <label>测试服务 URL</label>
+        <input id="ttsGatewayUrl" value="">
+        <label>测试文字</label>
+        <textarea id="ttsGatewayText">你好，这是一次语音合成测试。</textarea>
+        <div class="row">
+          <div><label>返回格式</label><input id="ttsGatewayFormat" value="pcm"></div>
+          <div><label>Token</label><input id="ttsGatewayToken" placeholder="如服务需要 token 可填写"></div>
+        </div>
+        <label><input id="ttsGatewayVerifySsl" type="checkbox" checked style="width:auto"> 校验 HTTPS 证书</label>
+        <label><input id="ttsGatewaySendDevice" type="checkbox" style="width:auto"> 合成成功后下发到目标设备</label>
+        <label><input id="ttsGatewayInterrupt" type="checkbox" checked style="width:auto"> 下发前中断当前语音</label>
+        <label><input id="ttsGatewayControlMessages" type="checkbox" checked style="width:auto"> 发送 voice_start / voice_end 控制命令</label>
+        <button class="primary" onclick="testTtsGateway()">测试 TTS 服务</button>
+      </div>
+
+      <div class="tab-panel" id="tab-cmd" role="tabpanel">
+        <h3>设备命令</h3>
+        <div class="row">
+          <button onclick="sendPresetCmd('start_pcm', 11)">录音启动</button>
+          <button onclick="sendPresetCmd('stop_pcm', 12)">录音停止</button>
+          <button onclick="sendPresetCmd('start_h264', 21)">录像启动</button>
+          <button onclick="sendPresetCmd('stop_h264', 22)">录像停止</button>
+          <button onclick="sendPresetCmd('snap_jpeg', 33)">截图</button>
+          <button class="danger" onclick="sendPresetCmd('reboot', 44)">重启</button>
+        </div>
+        <button onclick="broadcastUptime()">广播时间</button>
+        <label>自定义 cmd JSON</label>
+        <textarea id="customCmd" placeholder='{"cmd":"uptime","msgid":55}'></textarea>
+        <button onclick="sendCustomCmd()">发送自定义命令到目标设备</button>
+      </div>
+
+      <div class="tab-panel" id="tab-logs" role="tabpanel">
+        <h3>操作日志</h3>
+        <div class="log" id="log"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let selectedSn = "";
+    let lastClientsFingerprint = null;
+    adminToken.value = localStorage.getItem("helmet_admin_token") || "";
+    includeOffline.checked = localStorage.getItem("helmet_include_offline") === "1";
+
+    function saveToken() {
+      localStorage.setItem("helmet_admin_token", adminToken.value.trim());
+      writeLog("管理员 Token 已保存到当前浏览器");
+      loadClients();
+    }
+
+    function authHeaders(extra = {}) {
+      const token = adminToken.value.trim();
+      return token ? {...extra, Authorization: `Bearer ${token}`} : extra;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;",
+      }[ch]));
+    }
+
+    function writeLog(text) {
+      const now = new Date().toLocaleTimeString();
+      log.textContent += `[${now}] ${text}\n`;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function switchTab(tabName) {
+      localStorage.setItem("helmet_admin_tab", tabName);
+      document.querySelectorAll(".tab-button").forEach(button => {
+        button.classList.toggle("active", button.dataset.tab === tabName);
+      });
+      document.querySelectorAll(".tab-panel").forEach(panel => {
+        panel.classList.toggle("active", panel.id === `tab-${tabName}`);
+      });
+    }
+
+    async function loadClients() {
+      localStorage.setItem("helmet_include_offline", includeOffline.checked ? "1" : "0");
+      const query = includeOffline.checked ? "?include_offline=true" : "";
+      const res = await fetch(`/api/admin/clients${query}`, {headers: authHeaders()});
+      if (!res.ok) {
+        writeLog("刷新客户端失败：" + await res.text());
+        return;
+      }
+      const data = await res.json();
+      const rows = data.clients || [];
+      // 内容指纹：数据未变化时跳过 DOM 全量重建，降低 3 秒轮询的开销
+      const fingerprint = JSON.stringify(rows);
+      if (fingerprint === lastClientsFingerprint) return;
+      lastClientsFingerprint = fingerprint;
+      clients.innerHTML = rows.map(renderClient).join("") || "<p class='empty'>暂无客户端连接</p>";
+      clients.querySelectorAll(".client").forEach(el => {
+        el.addEventListener("click", () => selectClient(el.dataset.sn));
+      });
+      const previous = selectedSn || sn.value;
+      sn.innerHTML = rows.map(x => `<option value="${escapeHtml(x.sn)}">${escapeHtml(x.sn)} · voice:${x.voice_connected ? "connected" : "off"}</option>`).join("");
+      if (previous && rows.some(x => x.sn === previous)) {
+        selectedSn = previous;
+        sn.value = previous;
+      } else if (rows[0]) {
+        selectedSn = rows[0].sn;
+        sn.value = selectedSn;
+      } else {
+        selectedSn = "";
+        sn.value = "";
+      }
+      markActive();
+    }
+
+    function renderClient(item) {
+      return `<div class="client" data-sn="${escapeHtml(item.sn)}">
+        <b>${escapeHtml(item.sn)}</b><br>
+        <span class="status ${item.cmd_connected ? "ok" : "bad"}">cmd ${item.cmd_connected ? "connected" : "off"}</span>
+        <span class="status ${item.voice_connected ? "ok" : "bad"}">voice ${item.voice_connected ? "connected" : "off"}</span>
+        <span class="status">web ${escapeHtml(item.web_clients)}</span>
+        <span class="status ${item.online ? "ok" : "bad"}">${item.online ? "在线" : "离线"}</span>
+        <p>任务：${escapeHtml(item.current_task || "-")} / ${escapeHtml(item.task_state || "-")}</p>
+        <small>${escapeHtml(item.last_agent_reply || "")}</small>
+      </div>`;
+    }
+
+    function selectClient(value) {
+      selectedSn = value;
+      sn.value = value;
+      markActive();
+    }
+
+    function markActive() {
+      document.querySelectorAll(".client").forEach(el => {
+        el.classList.toggle("active", el.dataset.sn === sn.value);
+      });
+    }
+
+    async function sendPcm() {
+      if (!sn.value) return writeLog("请选择目标设备");
+      if (!pcmFile.files[0]) return writeLog("请选择 PCM/WAV 文件");
+      const form = new FormData();
+      form.append("sn", sn.value);
+      form.append("file", pcmFile.files[0]);
+      form.append("interrupt_current", pcmInterrupt.checked ? "true" : "false");
+      form.append("send_control_messages", pcmControlMessages.checked ? "true" : "false");
+      const res = await fetch("/api/admin/send-pcm", { method: "POST", headers: authHeaders(), body: form });
+      const text = await res.text();
+      writeLog(res.ok ? `PCM 下发成功：${text}` : `PCM 下发失败：${text}`);
+      await loadClients();
+    }
+
+    async function sendTts() {
+      if (!sn.value) return writeLog("请选择目标设备");
+      if (!ttsText.value.trim()) return writeLog("请输入文字");
+      const payload = {
+        sn: sn.value,
+        text: ttsText.value,
+        stream_to_web: streamToWeb.checked,
+        chunk_chars: Number(chunkChars.value || 8),
+        interval_ms: Number(intervalMs.value || 60),
+        interrupt_current: ttsInterrupt.checked,
+        send_control_messages: ttsControlMessages.checked,
+      };
+      const res = await fetch("/api/admin/send-tts", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      writeLog(res.ok ? `TTS 下发成功：${text}` : `TTS 下发失败：${text}`);
+      await loadClients();
+    }
+
+    async function cancelTts() {
+      if (!sn.value) return writeLog("请选择目标设备");
+      const res = await fetch("/api/admin/cancel-tts", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify({sn: sn.value, reason: "admin_cancel"}),
+      });
+      writeLog(res.ok ? "已发送语音中断命令" : "语音中断失败：" + await res.text());
+    }
+
+    async function testTtsGateway() {
+      if (ttsGatewaySendDevice.checked && !sn.value) return writeLog("请选择目标设备");
+      const payload = {
+        url: ttsGatewayUrl.value.trim(),
+        text: ttsGatewayText.value,
+        token: ttsGatewayToken.value.trim(),
+        response_format: ttsGatewayFormat.value.trim() || "pcm",
+        verify_ssl: ttsGatewayVerifySsl.checked,
+        send_to_device: ttsGatewaySendDevice.checked,
+        sn: sn.value || null,
+        interrupt_current: ttsGatewayInterrupt.checked,
+        send_control_messages: ttsGatewayControlMessages.checked,
+      };
+      const res = await fetch("/api/admin/test-tts-gateway", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        writeLog(`TTS 测试失败：${text}`);
+        return;
+      }
+      try {
+        const data = JSON.parse(text);
+        writeLog(`TTS 测试成功：${data.bytes} bytes，文件 ${data.url}`);
+      } catch {
+        writeLog(`TTS 测试成功：${text}`);
+      }
+      await loadClients();
+    }
+
+    async function runLlmTtsGateway() {
+      if (!sn.value) return writeLog("请选择目标设备");
+      if (!llmPrompt.value.trim()) return writeLog("请输入给大模型的文字");
+      const payload = {
+        sn: sn.value,
+        prompt: llmPrompt.value,
+        url: ttsGatewayUrl.value.trim(),
+        token: ttsGatewayToken.value.trim(),
+        response_format: ttsGatewayFormat.value.trim() || "pcm",
+        verify_ssl: ttsGatewayVerifySsl.checked,
+        max_sentence_chars: Number(llmSentenceChars.value || 36),
+        stream_chunk_chars: Number(llmStreamChars.value || 8),
+        stream_interval_ms: Number(intervalMs.value || 60),
+        interrupt_current: llmTtsInterrupt.checked,
+        send_control_messages: llmTtsControlMessages.checked,
+      };
+      const res = await fetch("/api/admin/llm-tts-gateway", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        writeLog(`大模型+TTS 下发失败：${text}`);
+        return;
+      }
+      try {
+        const data = JSON.parse(text);
+        writeLog(`大模型+TTS 下发成功：${data.sentences.length} 段，${data.bytes} bytes`);
+      } catch {
+        writeLog(`大模型+TTS 下发成功：${text}`);
+      }
+      await loadClients();
+    }
+
+    async function sendPresetCmd(cmd, msgid) {
+      await sendDeviceCmd({cmd, msgid});
+    }
+
+    async function sendDeviceCmd(command) {
+      if (!sn.value) return writeLog("请选择目标设备");
+      const payload = {
+        sn: sn.value,
+        cmd: command.cmd,
+        msgid: command.msgid,
+        payload: {...command},
+      };
+      delete payload.payload.cmd;
+      delete payload.payload.msgid;
+      const res = await fetch("/api/admin/send-cmd", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      writeLog(res.ok ? `命令下发成功：${text}` : `命令下发失败：${text}`);
+      await loadClients();
+    }
+
+    async function broadcastUptime() {
+      const payload = {
+        cmd: "uptime",
+        msgid: 55,
+        payload: {time: new Date().toLocaleString()},
+      };
+      const res = await fetch("/api/admin/broadcast-cmd", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      writeLog(res.ok ? `广播成功：${text}` : `广播失败：${text}`);
+      await loadClients();
+    }
+
+    async function sendCustomCmd() {
+      let command;
+      try {
+        command = JSON.parse(customCmd.value.trim());
+      } catch (err) {
+        return writeLog("自定义命令不是合法 JSON");
+      }
+      if (!command || !command.cmd) return writeLog("自定义命令必须包含 cmd");
+      await sendDeviceCmd(command);
+    }
+
+    sn.addEventListener("change", () => { selectedSn = sn.value; markActive(); });
+    includeOffline.addEventListener("change", loadClients);
+    switchTab(localStorage.getItem("helmet_admin_tab") || "voice");
+    loadClients();
+    setInterval(loadClients, 3000);
+  </script>
+</body>
+</html>

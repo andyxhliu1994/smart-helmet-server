@@ -1,0 +1,2 @@
+# 完整环境，包含本地 FunASR、ModelScope TTS 和 PyTorch。
+-r requirements-models.txt

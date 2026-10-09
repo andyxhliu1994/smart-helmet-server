@@ -1,0 +1,7 @@
+-r requirements-base.txt
+
+# 仅在本机直接运行 ASR/TTS 模型时安装；使用 HTTP 网关时不需要。
+funasr
+modelscope
+torch
+torchaudio

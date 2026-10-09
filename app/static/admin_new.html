@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>隐患识别 · 调度台</title>
+  <style>
+    :root {
+      /* 石墨底 —— 工业控制室 */
+      --graphite-0: #13161a;
+      --graphite-1: #1a2025;
+      --graphite-2: #222a31;
+      --graphite-3: #2b343c;
+      --line: #333e47;
+      --line-soft: #262e35;
+      /* 高可视安全琥珀 —— 安全帽 / 反光背心 / 警示带，唯一强调色 */
+      --hivis: #ffb000;
+      --hivis-bright: #ffc233;
+      --hivis-soft: rgba(255, 176, 0, .12);
+      --hivis-line: rgba(255, 176, 0, .42);
+      /* 钢蓝 —— 链接 / 信息，克制使用 */
+      --steel: #74b6cc;
+      /* 状态 */
+      --live: #45d17f;
+      --live-soft: rgba(69, 209, 127, .14);
+      --alarm: #ff5d52;
+      --alarm-soft: rgba(255, 93, 82, .12);
+      --text: #eef2f4;
+      --muted: #95a0a8;
+      --muted-2: #69747c;
+      --mono: ui-monospace, "Cascadia Code", "Cascadia Mono", Consolas, "Liberation Mono", "Microsoft YaHei", monospace;
+      --sans: "Segoe UI", system-ui, -apple-system, "Microsoft YaHei", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--graphite-0); }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      background: var(--graphite-0);
+    }
+
+    /* 斑马警示带 —— signature 结构元素 */
+    .hazard-rule {
+      height: 4px;
+      background: repeating-linear-gradient(-45deg,
+        var(--hivis) 0 11px, #161a1e 11px 22px);
+      opacity: .85;
+    }
+
+    /* —— 调度台标题栏 —— */
+    header {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; justify-content: space-between; align-items: center; gap: 16px;
+      padding: 13px 24px;
+      background: var(--graphite-1);
+      border-bottom: 1px solid var(--line);
+    }
+    .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+    .brand .beacon {
+      position: relative; flex: 0 0 auto;
+      width: 13px; height: 13px; border-radius: 50%;
+      background: var(--live);
+      box-shadow: 0 0 0 3px var(--live-soft);
+    }
+    .brand .beacon::after {
+      content: ""; position: absolute; inset: -3px; border-radius: 50%;
+      border: 1px solid var(--live);
+      animation: ping 2.6s cubic-bezier(.2,.6,.3,1) infinite;
+    }
+    @keyframes ping { 0% { transform: scale(1); opacity: .7; } 70%, 100% { transform: scale(2.4); opacity: 0; } }
+    .brand .titles { min-width: 0; }
+    .brand .eyebrow {
+      font-family: var(--mono); font-size: 10.5px; letter-spacing: .22em;
+      text-transform: uppercase; color: var(--hivis); margin: 0 0 1px;
+    }
+    .brand strong { font-size: 18px; font-weight: 700; letter-spacing: .3px; line-height: 1.1; }
+    nav { display: flex; align-items: center; gap: 12px; color: var(--muted-2); font-size: 14px; flex-wrap: wrap; }
+    a { color: var(--steel); text-decoration: none; transition: color .15s ease; }
+    a:hover { color: var(--hivis-bright); }
+
+    h2, h3 { color: var(--text); line-height: 1.2; }
+    h2 { margin: 0; font-size: 18px; font-weight: 700; }
+    h3 {
+      margin: 22px 0 12px; font-size: 12px; font-weight: 700;
+      letter-spacing: .12em; text-transform: uppercase; color: var(--hivis);
+      display: flex; align-items: center; gap: 9px;
+    }
+    h3::before { content: ""; width: 14px; height: 2px; background: var(--hivis); }
+    h3:first-child { margin-top: 0; }
+    p { margin: 8px 0; }
+
+    /* eyebrow 小标 —— 工业 HMI 风格 */
+    .eyebrow {
+      font-family: var(--mono); font-size: 10.5px; letter-spacing: .2em;
+      text-transform: uppercase; color: var(--muted-2);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(300px, 372px) minmax(0, 1fr);
+      gap: 18px;
+      width: min(1480px, 100%);
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .panel {
+      background: var(--graphite-1);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 18px;
+    }
+    .sidebar-panel { align-self: start; position: sticky; top: 80px; max-height: calc(100vh - 98px); overflow: auto; }
+
+    .section-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+    .panel-head { margin-bottom: 14px; }
+    .panel-head .eyebrow { display: block; margin-bottom: 3px; }
+    .small-action {
+      width: auto; padding: 7px 13px; margin-top: 0; font-size: 12px;
+      font-family: var(--mono); letter-spacing: .04em;
+    }
+
+    /* —— 机组 roster —— */
+    .client-list { display: grid; gap: 9px; margin-top: 14px; }
+    .client {
+      position: relative;
+      border: 1px solid var(--line-soft);
+      border-left: 3px solid var(--muted-2);
+      border-radius: 4px;
+      padding: 12px 13px;
+      cursor: pointer;
+      background: var(--graphite-2);
+      transition: border-color .15s ease, background .15s ease, transform .12s ease;
+    }
+    .client:hover { background: var(--graphite-3); border-left-color: var(--hivis); transform: translateX(2px); }
+    .client.active {
+      border-left-color: var(--hivis);
+      background: linear-gradient(90deg, var(--hivis-soft), transparent 70%);
+      border-color: var(--hivis-line);
+    }
+    .client > b {
+      font-family: var(--mono); font-size: 14px; font-weight: 700;
+      color: #fff; letter-spacing: .02em; overflow-wrap: anywhere;
+    }
+    .client p { color: var(--muted); font-size: 12.5px; margin: 9px 0 4px; }
+    .client small { color: var(--muted-2); font-size: 12px; overflow-wrap: anywhere; display: block; }
+
+    /* 信号状态灯 */
+    .status {
+      display: inline-flex; align-items: center;
+      border-radius: 3px; padding: 2px 8px; font-size: 11px; margin: 8px 5px 0 0;
+      font-family: var(--mono); letter-spacing: .02em;
+      background: var(--graphite-3); color: #c2ccd2;
+      border: 1px solid var(--line);
+    }
+    .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--muted-2); margin-right: 7px; }
+    .ok { background: var(--live-soft); color: #a4ecc2; border-color: rgba(69, 209, 127, .3); }
+    .ok::before { background: var(--live); box-shadow: 0 0 6px var(--live); }
+    .bad { background: var(--alarm-soft); color: #ffb6b1; border-color: rgba(255, 93, 82, .3); }
+    .bad::before { background: var(--alarm); box-shadow: 0 0 6px var(--alarm); }
+
+    label { display: block; font-size: 13px; margin-top: 14px; color: var(--muted); }
+    label input[type="checkbox"] { margin-right: 8px; vertical-align: -2px; accent-color: var(--hivis); }
+
+    input, textarea, select, button {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 4px; font: inherit;
+      background: var(--graphite-0);
+      color: var(--text); outline: none;
+      transition: border-color .14s ease, box-shadow .14s ease, background .14s ease;
+    }
+    input::placeholder, textarea::placeholder { color: #5f6a72; }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--hivis);
+      box-shadow: 0 0 0 3px var(--hivis-soft);
+    }
+    input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible {
+      outline: 2px solid var(--hivis); outline-offset: 1px;
+    }
+    select, input[id="sn"] { font-family: var(--mono); }
+    input[type="file"] { padding: 8px; background: var(--graphite-2); font-size: 13px; }
+    input[type="file"]::file-selector-button {
+      margin-right: 11px; border: 1px solid var(--line); border-radius: 3px;
+      padding: 7px 11px; background: var(--graphite-3); color: var(--text); cursor: pointer;
+      font-family: var(--mono); font-size: 12px;
+      transition: border-color .14s ease, background .14s ease;
+    }
+    input[type="file"]::file-selector-button:hover { border-color: var(--hivis); background: #38424a; }
+    textarea { min-height: 116px; resize: vertical; }
+
+    button {
+      cursor: pointer; margin-top: 12px;
+      background: var(--graphite-2);
+      border-color: var(--line);
+      font-weight: 600;
+      transition: border-color .14s ease, background .14s ease, transform .07s ease;
+    }
+    button:hover { border-color: var(--hivis); background: var(--graphite-3); }
+    button:active { transform: translateY(1px); }
+    .primary {
+      background: var(--hivis); border-color: var(--hivis);
+      color: #1a1206; font-weight: 700; letter-spacing: .01em;
+    }
+    .primary:hover { background: var(--hivis-bright); border-color: var(--hivis-bright); }
+    .danger {
+      color: #ffc9c5; border-color: rgba(255, 93, 82, .5);
+      background: var(--alarm-soft);
+    }
+    .danger:hover { background: rgba(255, 93, 82, .2); border-color: var(--alarm); }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+    /* 设备命令按钮排成 3 列网格 */
+    #tab-cmd .row { grid-template-columns: repeat(3, 1fr); }
+
+    /* —— CHANNEL 选频框 —— */
+    .target-bar {
+      margin-bottom: 18px; padding: 15px 16px;
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--hivis);
+      border-radius: 4px;
+      background: var(--graphite-2);
+    }
+    .target-bar .eyebrow { display: flex; align-items: center; gap: 7px; }
+    .target-bar .eyebrow::before {
+      content: ""; width: 7px; height: 7px; border-radius: 50%;
+      background: var(--hivis); box-shadow: 0 0 7px var(--hivis);
+    }
+    .target-bar h2 { margin: 3px 0 0; font-size: 16px; }
+    .target-bar label { margin-top: 12px; }
+
+    /* —— 功能选项卡 —— */
+    .tabs {
+      display: flex; gap: 4px; margin: 0 0 18px;
+      overflow-x: auto; padding: 4px;
+      background: var(--graphite-0);
+      border: 1px solid var(--line-soft);
+      border-radius: 4px;
+    }
+    .tab-button {
+      width: auto; flex: 0 0 auto; margin-top: 0;
+      padding: 9px 15px; white-space: nowrap;
+      color: var(--muted); background: transparent; border-color: transparent;
+      border-radius: 3px; font-weight: 600; font-size: 13.5px;
+    }
+    .tab-button:hover { background: var(--graphite-2); color: var(--text); border-color: transparent; }
+    .tab-button.active {
+      background: var(--hivis-soft); color: var(--hivis-bright);
+      border: 1px solid var(--hivis-line); font-weight: 700;
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: rise .22s ease; }
+    @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    .form-divider { height: 1px; margin: 20px 0 0; background: var(--line-soft); }
+
+    /* —— 操作日志：调度台终端 —— */
+    .log-head {
+      display: flex; align-items: center; gap: 9px;
+      margin: 0 0 10px;
+    }
+    .log-head .eyebrow { color: var(--hivis); }
+    .log {
+      min-height: 360px; max-height: 62vh; overflow: auto;
+      background: #0c0f12;
+      color: #cfe0d9;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 13px;
+      white-space: pre-wrap;
+      font-family: var(--mono);
+      font-size: 12px; line-height: 1.7;
+    }
+    .empty { color: var(--muted); margin: 12px 0 0; font-family: var(--mono); font-size: 13px; }
+
+    ::-webkit-scrollbar { width: 9px; height: 9px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--hivis-line); }
+
+    @media (max-width: 850px) {
+      header { position: static; align-items: flex-start; flex-direction: column; padding: 12px 16px; }
+      .layout { grid-template-columns: 1fr; padding: 14px; gap: 14px; }
+      .sidebar-panel { position: static; max-height: none; }
+      .row, #tab-cmd .row { grid-template-columns: 1fr; gap: 0; }
+      .log { min-height: 260px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .brand .beacon::after, .tab-panel.active { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="beacon"></span>
+      <div class="titles">
+        <p class="eyebrow">DISPATCH CONSOLE</p>
+        <strong>隐患识别 · 调度台</strong>
+      </div>
+    </div>
+    <nav><a href="/">实时对话</a> · <a href="/history">历史</a> · <a href="/knowledge">文档</a></nav>
+  </header>
+  <div class="hazard-rule"></div>
+  <main class="layout">
+    <section class="panel sidebar-panel">
+      <div class="section-title">
+        <div class="panel-head">
+          <span class="eyebrow">FLEET</span>
+          <h2>设备列表</h2>
+        </div>
+        <button class="small-action" onclick="loadClients()">刷新</button>
+      </div>
+      <label>管理员 Token</label>
+      <input id="adminToken" type="password" placeholder="如果服务配置了 ADMIN_TOKEN，请填写">
+      <button onclick="saveToken()">保存 Token</button>
+      <label><input id="includeOffline" type="checkbox" style="width:auto"> 显示离线会话</label>
+      <div class="client-list" id="clients"></div>
+    </section>
+    <section class="panel">
+      <div class="target-bar">
+        <span class="eyebrow">CHANNEL · 目标设备</span>
+        <h2>客户端操作</h2>
+        <label>选中要下发指令的设备</label>
+        <select id="sn"></select>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="管理功能">
+        <button class="tab-button active" type="button" data-tab="voice" onclick="switchTab('voice')">语音下发</button>
+        <button class="tab-button" type="button" data-tab="llm" onclick="switchTab('llm')">大模型 TTS</button>
+        <button class="tab-button" type="button" data-tab="gateway" onclick="switchTab('gateway')">TTS 测试</button>
+        <button class="tab-button" type="button" data-tab="cmd" onclick="switchTab('cmd')">设备命令</button>
+        <button class="tab-button" type="button" data-tab="logs" onclick="switchTab('logs')">操作日志</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-voice" role="tabpanel">
+        <h3>发送 PCM</h3>
+        <label>PCM/WAV 文件</label>
+        <input id="pcmFile" type="file" accept=".pcm,.wav,audio/*">
+        <label><input id="pcmInterrupt" type="checkbox" checked style="width:auto"> 下发前中断当前语音</label>
+        <label><input id="pcmControlMessages" type="checkbox" checked style="width:auto"> 发送 voice_start / voice_end 控制命令</label>
+        <button class="primary" onclick="sendPcm()">发送 PCM 到设备 voice 通道</button>
+
+        <h3>流式文字转语音</h3>
+        <label>大模型流式返回文字</label>
+        <textarea id="ttsText" placeholder="输入要在 Web 端流式展示，并转成语音下发给设备端的文字"></textarea>
+        <div class="row">
+          <div><label>每段字符数</label><input id="chunkChars" type="number" value="8" min="1" max="80"></div>
+          <div><label>间隔毫秒</label><input id="intervalMs" type="number" value="60" min="0" max="2000"></div>
+        </div>
+        <label><input id="streamToWeb" type="checkbox" checked style="width:auto"> 同步在实时对话页流式展示</label>
+        <label><input id="ttsInterrupt" type="checkbox" checked style="width:auto"> 下发前中断当前语音</label>
+        <label><input id="ttsControlMessages" type="checkbox" checked style="width:auto"> 发送 voice_start / voice_end 控制命令</label>
+        <button class="primary" onclick="sendTts()">流式展示并转语音下发</button>
+        <button class="danger" onclick="cancelTts()">中断当前语音</button>
+      </div>
+
+      <div class="tab-panel" id="tab-llm" role="tabpanel">
+        <h3>大模型 + 测试 TTS</h3>
+        <label>给大模型的文字</label>
+        <textarea id="llmPrompt" placeholder="输入要交给大模型处理的内容，回复会流式显示并分句转成 PCM 下发"></textarea>
+        <div class="row">
+          <div><label>流式分片字符数</label><input id="llmStreamChars" type="number" value="8" min="1" max="80"></div>
+          <div><label>分句最大字符数</label><input id="llmSentenceChars" type="number" value="36" min="8" max="120"></div>
+        </div>
+        <label><input id="llmTtsInterrupt" type="checkbox" checked style="width:auto"> 下发前中断当前语音</label>
+        <label><input id="llmTtsControlMessages" type="checkbox" checked style="width:auto"> 发送 voice_start / voice_end 控制命令</label>
+        <button class="primary" onclick="runLlmTtsGateway()">提交大模型并分句下发语音</button>
+      </div>
+
+      <div class="tab-panel" id="tab-gateway" role="tabpanel">
+        <h3>TTS 测试服务</h3>
+        <label>测试服务 URL</label>
+        <input id="ttsGatewayUrl" value="">
+        <label>测试文字</label>
+        <textarea id="ttsGatewayText">你好，这是一次语音合成测试。</textarea>
+        <div class="row">
+          <div><label>返回格式</label><input id="ttsGatewayFormat" value="pcm"></div>
+          <div><label>Token</label><input id="ttsGatewayToken" placeholder="如服务需要 token 可填写"></div>
+        </div>
+        <label><input id="ttsGatewayVerifySsl" type="checkbox" checked style="width:auto"> 校验 HTTPS 证书</label>
+        <label><input id="ttsGatewaySendDevice" type="checkbox" style="width:auto"> 合成成功后下发到目标设备</label>
+        <label><input id="ttsGatewayInterrupt" type="checkbox" checked style="width:auto"> 下发前中断当前语音</label>
+        <label><input id="ttsGatewayControlMessages" type="checkbox" checked style="width:auto"> 发送 voice_start / voice_end 控制命令</label>
+        <button class="primary" onclick="testTtsGateway()">测试 TTS 服务</button>
+      </div>
+
+      <div class="tab-panel" id="tab-cmd" role="tabpanel">
+        <h3>设备命令</h3>
+        <div class="row">
+          <button onclick="sendPresetCmd('start_pcm', 11)">录音启动</button>
+          <button onclick="sendPresetCmd('stop_pcm', 12)">录音停止</button>
+          <button onclick="sendPresetCmd('start_h264', 21)">录像启动</button>
+          <button onclick="sendPresetCmd('stop_h264', 22)">录像停止</button>
+          <button onclick="sendPresetCmd('snap_jpeg', 33)">截图</button>
+          <button class="danger" onclick="sendPresetCmd('reboot', 44)">重启</button>
+        </div>
+        <button onclick="broadcastUptime()">广播时间</button>
+        <label>自定义 cmd JSON</label>
+        <textarea id="customCmd" placeholder='{"cmd":"uptime","msgid":55}'></textarea>
+        <button onclick="sendCustomCmd()">发送自定义命令到目标设备</button>
+      </div>
+
+      <div class="tab-panel" id="tab-logs" role="tabpanel">
+        <div class="log-head">
+          <span class="eyebrow">OPERATIONS LOG</span>
+        </div>
+        <div class="log" id="log"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let selectedSn = "";
+    let lastClientsFingerprint = null;
+    adminToken.value = localStorage.getItem("helmet_admin_token") || "";
+    includeOffline.checked = localStorage.getItem("helmet_include_offline") === "1";
+
+    function saveToken() {
+      localStorage.setItem("helmet_admin_token", adminToken.value.trim());
+      writeLog("管理员 Token 已保存到当前浏览器");
+      loadClients();
+    }
+
+    function authHeaders(extra = {}) {
+      const token = adminToken.value.trim();
+      return token ? {...extra, Authorization: `Bearer ${token}`} : extra;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;",
+      }[ch]));
+    }
+
+    function writeLog(text) {
+      const now = new Date().toLocaleTimeString();
+      log.textContent += `[${now}] ${text}\n`;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function switchTab(tabName) {
+      localStorage.setItem("helmet_admin_tab", tabName);
+      document.querySelectorAll(".tab-button").forEach(button => {
+        button.classList.toggle("active", button.dataset.tab === tabName);
+      });
+      document.querySelectorAll(".tab-panel").forEach(panel => {
+        panel.classList.toggle("active", panel.id === `tab-${tabName}`);
+      });
+    }
+
+    async function loadClients() {
+      localStorage.setItem("helmet_include_offline", includeOffline.checked ? "1" : "0");
+      const query = includeOffline.checked ? "?include_offline=true" : "";
+      const res = await fetch(`/api/admin/clients${query}`, {headers: authHeaders()});
+      if (!res.ok) {
+        writeLog("刷新客户端失败：" + await res.text());
+        return;
+      }
+      const data = await res.json();
+      const rows = data.clients || [];
+      // 内容指纹：数据未变化时跳过 DOM 全量重建，降低 3 秒轮询的开销
+      const fingerprint = JSON.stringify(rows);
+      if (fingerprint === lastClientsFingerprint) return;
+      lastClientsFingerprint = fingerprint;
+      clients.innerHTML = rows.map(renderClient).join("") || "<p class='empty'>暂无客户端连接</p>";
+      clients.querySelectorAll(".client").forEach(el => {
+        el.addEventListener("click", () => selectClient(el.dataset.sn));
+      });
+      const previous = selectedSn || sn.value;
+      sn.innerHTML = rows.map(x => `<option value="${escapeHtml(x.sn)}">${escapeHtml(x.sn)} · voice:${x.voice_connected ? "connected" : "off"}</option>`).join("");
+      if (previous && rows.some(x => x.sn === previous)) {
+        selectedSn = previous;
+        sn.value = previous;
+      } else if (rows[0]) {
+        selectedSn = rows[0].sn;
+        sn.value = selectedSn;
+      } else {
+        selectedSn = "";
+        sn.value = "";
+      }
+      markActive();
+    }
+
+    function renderClient(item) {
+      return `<div class="client" data-sn="${escapeHtml(item.sn)}">
+        <b>${escapeHtml(item.sn)}</b><br>
+        <span class="status ${item.cmd_connected ? "ok" : "bad"}">cmd ${item.cmd_connected ? "connected" : "off"}</span>
+        <span class="status ${item.voice_connected ? "ok" : "bad"}">voice ${item.voice_connected ? "connected" : "off"}</span>
+        <span class="status">web ${escapeHtml(item.web_clients)}</span>
+        <span class="status ${item.online ? "ok" : "bad"}">${item.online ? "在线" : "离线"}</span>
+        <p>任务：${escapeHtml(item.current_task || "-")} / ${escapeHtml(item.task_state || "-")}</p>
+        <small>${escapeHtml(item.last_agent_reply || "")}</small>
+      </div>`;
+    }
+
+    function selectClient(value) {
+      selectedSn = value;
+      sn.value = value;
+      markActive();
+    }
+
+    function markActive() {
+      document.querySelectorAll(".client").forEach(el => {
+        el.classList.toggle("active", el.dataset.sn === sn.value);
+      });
+    }
+
+    async function sendPcm() {
+      if (!sn.value) return writeLog("请选择目标设备");
+      if (!pcmFile.files[0]) return writeLog("请选择 PCM/WAV 文件");
+      const form = new FormData();
+      form.append("sn", sn.value);
+      form.append("file", pcmFile.files[0]);
+      form.append("interrupt_current", pcmInterrupt.checked ? "true" : "false");
+      form.append("send_control_messages", pcmControlMessages.checked ? "true" : "false");
+      const res = await fetch("/api/admin/send-pcm", { method: "POST", headers: authHeaders(), body: form });
+      const text = await res.text();
+      writeLog(res.ok ? `PCM 下发成功：${text}` : `PCM 下发失败：${text}`);
+      await loadClients();
+    }
+
+    async function sendTts() {
+      if (!sn.value) return writeLog("请选择目标设备");
+      if (!ttsText.value.trim()) return writeLog("请输入文字");
+      const payload = {
+        sn: sn.value,
+        text: ttsText.value,
+        stream_to_web: streamToWeb.checked,
+        chunk_chars: Number(chunkChars.value || 8),
+        interval_ms: Number(intervalMs.value || 60),
+        interrupt_current: ttsInterrupt.checked,
+        send_control_messages: ttsControlMessages.checked,
+      };
+      const res = await fetch("/api/admin/send-tts", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      writeLog(res.ok ? `TTS 下发成功：${text}` : `TTS 下发失败：${text}`);
+      await loadClients();
+    }
+
+    async function cancelTts() {
+      if (!sn.value) return writeLog("请选择目标设备");
+      const res = await fetch("/api/admin/cancel-tts", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify({sn: sn.value, reason: "admin_cancel"}),
+      });
+      writeLog(res.ok ? "已发送语音中断命令" : "语音中断失败：" + await res.text());
+    }
+
+    async function testTtsGateway() {
+      if (ttsGatewaySendDevice.checked && !sn.value) return writeLog("请选择目标设备");
+      const payload = {
+        url: ttsGatewayUrl.value.trim(),
+        text: ttsGatewayText.value,
+        token: ttsGatewayToken.value.trim(),
+        response_format: ttsGatewayFormat.value.trim() || "pcm",
+        verify_ssl: ttsGatewayVerifySsl.checked,
+        send_to_device: ttsGatewaySendDevice.checked,
+        sn: sn.value || null,
+        interrupt_current: ttsGatewayInterrupt.checked,
+        send_control_messages: ttsGatewayControlMessages.checked,
+      };
+      const res = await fetch("/api/admin/test-tts-gateway", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        writeLog(`TTS 测试失败：${text}`);
+        return;
+      }
+      try {
+        const data = JSON.parse(text);
+        writeLog(`TTS 测试成功：${data.bytes} bytes，文件 ${data.url}`);
+      } catch {
+        writeLog(`TTS 测试成功：${text}`);
+      }
+      await loadClients();
+    }
+
+    async function runLlmTtsGateway() {
+      if (!sn.value) return writeLog("请选择目标设备");
+      if (!llmPrompt.value.trim()) return writeLog("请输入给大模型的文字");
+      const payload = {
+        sn: sn.value,
+        prompt: llmPrompt.value,
+        url: ttsGatewayUrl.value.trim(),
+        token: ttsGatewayToken.value.trim(),
+        response_format: ttsGatewayFormat.value.trim() || "pcm",
+        verify_ssl: ttsGatewayVerifySsl.checked,
+        max_sentence_chars: Number(llmSentenceChars.value || 36),
+        stream_chunk_chars: Number(llmStreamChars.value || 8),
+        stream_interval_ms: Number(intervalMs.value || 60),
+        interrupt_current: llmTtsInterrupt.checked,
+        send_control_messages: llmTtsControlMessages.checked,
+      };
+      const res = await fetch("/api/admin/llm-tts-gateway", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        writeLog(`大模型+TTS 下发失败：${text}`);
+        return;
+      }
+      try {
+        const data = JSON.parse(text);
+        writeLog(`大模型+TTS 下发成功：${data.sentences.length} 段，${data.bytes} bytes`);
+      } catch {
+        writeLog(`大模型+TTS 下发成功：${text}`);
+      }
+      await loadClients();
+    }
+
+    async function sendPresetCmd(cmd, msgid) {
+      await sendDeviceCmd({cmd, msgid});
+    }
+
+    async function sendDeviceCmd(command) {
+      if (!sn.value) return writeLog("请选择目标设备");
+      const payload = {
+        sn: sn.value,
+        cmd: command.cmd,
+        msgid: command.msgid,
+        payload: {...command},
+      };
+      delete payload.payload.cmd;
+      delete payload.payload.msgid;
+      const res = await fetch("/api/admin/send-cmd", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      writeLog(res.ok ? `命令下发成功：${text}` : `命令下发失败：${text}`);
+      await loadClients();
+    }
+
+    async function broadcastUptime() {
+      const payload = {
+        cmd: "uptime",
+        msgid: 55,
+        payload: {time: new Date().toLocaleString()},
+      };
+      const res = await fetch("/api/admin/broadcast-cmd", {
+        method: "POST",
+        headers: authHeaders({"Content-Type": "application/json"}),
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      writeLog(res.ok ? `广播成功：${text}` : `广播失败：${text}`);
+      await loadClients();
+    }
+
+    async function sendCustomCmd() {
+      let command;
+      try {
+        command = JSON.parse(customCmd.value.trim());
+      } catch (err) {
+        return writeLog("自定义命令不是合法 JSON");
+      }
+      if (!command || !command.cmd) return writeLog("自定义命令必须包含 cmd");
+      await sendDeviceCmd(command);
+    }
+
+    sn.addEventListener("change", () => { selectedSn = sn.value; markActive(); });
+    includeOffline.addEventListener("change", loadClients);
+    switchTab(localStorage.getItem("helmet_admin_tab") || "voice");
+    loadClients();
+    setInterval(loadClients, 3000);
+  </script>
+</body>
+</html>

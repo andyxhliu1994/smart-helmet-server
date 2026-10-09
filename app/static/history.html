@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>历史设备对话</title>
+  <style>
+    body { margin: 0; font-family: Arial, "Microsoft YaHei", sans-serif; background: #f3f5f7; color: #1f2933; }
+    header { background: #fff; border-bottom: 1px solid #dce4ea; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+    a { color: #2764d8; text-decoration: none; }
+    .layout { display: grid; grid-template-columns: 340px 1fr; gap: 16px; padding: 16px; }
+    .panel { background: #fff; border: 1px solid #dce4ea; border-radius: 8px; padding: 14px; max-height: calc(100vh - 90px); overflow: auto; }
+    input, select, button { padding: 8px; border: 1px solid #cbd5df; border-radius: 6px; margin: 4px 0; }
+    .session { padding: 10px; border-bottom: 1px solid #edf1f5; cursor: pointer; }
+    .session:hover { background: #f8fafc; }
+    .msg { margin: 10px 0; display: flex; }
+    .msg.agent { justify-content: flex-start; }
+    .msg.device { justify-content: flex-end; }
+    .bubble { max-width: 72%; border-radius: 8px; padding: 10px 12px; background: #fff; border: 1px solid #dce4ea; }
+    .device .bubble { background: #dcecff; }
+    .system .bubble { background: #fff7d6; max-width: 92%; }
+    @media (max-width: 850px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header><strong>历史设备对话</strong><nav><a href="/">实时对话</a> · <a href="/knowledge">文档管理</a> · <a href="/admin">客户端管理</a></nav></header>
+  <div class="layout">
+    <section class="panel">
+      <div>
+        <select id="device"></select>
+        <input id="keyword" placeholder="关键词">
+        <button onclick="loadSessions()">查询</button>
+      </div>
+      <div id="sessions"></div>
+    </section>
+    <section class="panel" id="detail">请选择一条会话</section>
+  </div>
+  <script>
+    async function init() {
+      const devs = await fetch("/api/history/devices").then(r => r.json());
+      device.innerHTML = `<option value="">全部设备</option>` + devs.map(x => `<option>${x}</option>`).join("");
+      await loadSessions();
+    }
+    async function loadSessions() {
+      const qs = new URLSearchParams();
+      if (device.value) qs.set("sn", device.value);
+      if (keyword.value) qs.set("keyword", keyword.value);
+      const rows = await fetch("/api/history/sessions?" + qs).then(r => r.json());
+      sessions.innerHTML = rows.map(x => `<div class="session" onclick="openSession('${x.session_id}')"><b>${x.sn}</b><br>${x.start}<br><small>${x.summary || ""}</small></div>`).join("") || "暂无历史";
+    }
+    async function openSession(id) {
+      const rows = await fetch(`/api/history/sessions/${id}`).then(r => r.json());
+      detail.innerHTML = rows.map(render).join("");
+      detail.scrollTop = detail.scrollHeight;
+    }
+    function render(row) {
+      const role = row.type === "asr_result" ? "device" : (row.type && row.type.includes("error") ? "system" : "agent");
+      const text = row.text || row.message || row.web_summary || row.title || row.type;
+      return `<div class="msg ${role}"><div class="bubble"><small>${row.ts} · ${row.type}</small><br>${text}</div></div>`;
+    }
+    init();
+  </script>
+</body>
+</html>
