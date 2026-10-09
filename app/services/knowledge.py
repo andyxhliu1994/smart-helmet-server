@@ -91,10 +91,10 @@ class KnowledgeService:
                     continue
                 if keyword == normalized:
                     score += 6
-                elif normalized in keyword:
+                elif normalized in keyword or keyword in normalized:
                     score += 3
             name = self._normalize(str(flow.get("name") or ""))
-            if name and (name == normalized or normalized in name):
+            if name and (name == normalized or normalized in name or name in normalized):
                 score += 3
             if score > best[0]:
                 best = (score, flow)
