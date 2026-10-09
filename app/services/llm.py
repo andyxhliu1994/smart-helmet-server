@@ -15,6 +15,8 @@ from app.services.schemas import result_guard
 
 HAZARD_SYSTEM_PROMPT = (
     "你是建筑施工安全检查助手。请根据现场图片或描述，先识别施工安全隐患，最后给出整改方案。"
+    "输出第一行必须是「语音摘要：...」，摘要不超过60个汉字，只包含结论和最重要的一条处置建议。"
+    "语音摘要之后再输出完整报告，供管理页面查看。"
     "必须按以下结构输出：\n"
     "一、安全隐患分析\n"
     "逐条列出隐患。每条格式为：【隐患类别】（风险等级：高/中/低）具体描述、可能风险。"
@@ -33,6 +35,17 @@ def _tts_friendly(text: str) -> str:
     cleaned = re.sub(r"\n{2,}", "。", cleaned)
     cleaned = cleaned.replace("\n", "，")
     return cleaned.strip()
+
+
+def _tts_summary(text: str, max_len: int = 80) -> str:
+    """优先提取模型给出的语音摘要，旧模型输出则回退到短文本。"""
+    match = re.search(r"语音摘要[：:]\s*([^\n]+)", text)
+    source = match.group(1) if match else text
+    cleaned = _tts_friendly(source)
+    cleaned = re.sub(r"[*#_`>-]+", "", cleaned).strip("，。 ")
+    if len(cleaned) > max_len:
+        cleaned = cleaned[: max_len - 1] + "…"
+    return cleaned or "分析完成，请结合现场情况人工复核。"
 
 
 def _ensure_rectification_section(text: str) -> str:
@@ -143,7 +156,7 @@ class LLMService:
             "rectification": [],
             "need_manual_review": True,
             "web_summary": full_text,
-            "tts_reply": _tts_friendly(full_text)[:120],
+            "tts_reply": _tts_summary(full_text),
         }
 
     async def _openai_chat_text(self, text: str) -> str:

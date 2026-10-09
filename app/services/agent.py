@@ -269,68 +269,20 @@ class AgentService:
         # 每个 delta 用 persist=False，避免上百个 token 撑爆历史；完整文本在结束时统一入库。
         msgid = "llm-stream-analysis"
         await broadcaster.publish(sn, {"type": "agent_thought_start", "message_id": msgid})
-        tts_queue: asyncio.Queue[str | None] = asyncio.Queue()
-        tts_buffer: list[str] = []
-        tts_started = False
-        tts_task: asyncio.Task | None = None
-
-        async def tts_parts():
-            while True:
-                sentence = await tts_queue.get()
-                if sentence is None:
-                    return
-                try:
-                    async for item in tts_service.iter_synthesize_pcm_parts(sentence):
-                        yield item
-                finally:
-                    tts_queue.task_done()
-
-        async def queue_tts_text(text: str, force: bool = False) -> None:
-            nonlocal tts_started, tts_task
-            if text:
-                tts_buffer.append(text)
-
-            while True:
-                pending = "".join(tts_buffer).strip()
-                if not pending:
-                    tts_buffer.clear()
-                    return
-
-                split_at = self._stream_tts_split_index(pending, force)
-                if split_at < 0:
-                    tts_buffer[:] = [pending]
-                    return
-
-                sentence = pending[:split_at + 1].strip()
-                rest = pending[split_at + 1:].strip()
-                tts_buffer[:] = [rest] if rest else []
-                if sentence:
-                    await tts_queue.put(sentence)
-                    if not tts_started:
-                        tts_started = True
-                        tts_task = await broadcaster.send_voice_stream(sn, tts_parts(), "大模型实时语音播报")
-
-                if not rest:
-                    return
-
         async def on_chunk(chunk: str) -> None:
             await broadcaster.publish(
                 sn,
                 {"type": "agent_thought_delta", "message_id": msgid, "content": chunk},
                 persist=False,
             )
-            await queue_tts_text(chunk)
 
         try:
             result = await llm_service.analyze_multimodal(prompt, str(path), self._context(sn), on_chunk=on_chunk)
         except Exception as exc:
             logger.error("[模型分析] Qwen3-VL 分析失败：%s", exc)
-            await tts_queue.put(None)
             await broadcaster.publish(sn, {"type": "agent_thought_done", "message_id": msgid})
             await self._speak_error(sn, ErrorCode.LLM_TIMEOUT, "智能分析暂时失败，请稍后重试，并按检查流程人工复核。")
             return
-        await queue_tts_text("", force=True)
-        await tts_queue.put(None)
 
         # 结束思考流：带上完整文本，持久化入库供历史回看
         full_text = result.get("web_summary", "")
@@ -344,8 +296,7 @@ class AgentService:
         # Web 端先展示后续提示；语音仍按摘要 -> 提示的顺序下发。
         if full_text:
             await self._reply_text_only(sn, FOLLOW_UP_PROMPT, "agent-follow-up")
-            if tts_task is not None:
-                await tts_task
+            await self._speak(sn, result.get("tts_reply") or self._voice_summary(full_text, max_len=80), wait=True)
             await self._speak(sn, FOLLOW_UP_PROMPT)
         else:
             if tts_task is not None:
