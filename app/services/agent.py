@@ -269,12 +269,28 @@ class AgentService:
         # 每个 delta 用 persist=False，避免上百个 token 撑爆历史；完整文本在结束时统一入库。
         msgid = "llm-stream-analysis"
         await broadcaster.publish(sn, {"type": "agent_thought_start", "message_id": msgid})
+        summary_buffer: list[str] = []
+        summary_sent = False
+
         async def on_chunk(chunk: str) -> None:
+            nonlocal summary_sent
             await broadcaster.publish(
                 sn,
                 {"type": "agent_thought_delta", "message_id": msgid, "content": chunk},
                 persist=False,
             )
+            if summary_sent:
+                return
+            summary_buffer.append(chunk)
+            pending = "".join(summary_buffer)
+            if "\n" not in pending:
+                return
+            first_line = pending.split("\n", 1)[0].strip()
+            match = re.match(r"语音摘要[：:]\s*(.+)", first_line)
+            if not match:
+                return
+            summary_sent = True
+            await self._speak(sn, self._voice_summary(match.group(1), max_len=100))
 
         try:
             result = await llm_service.analyze_multimodal(prompt, str(path), self._context(sn), on_chunk=on_chunk)
@@ -296,8 +312,8 @@ class AgentService:
         # Web 端先展示后续提示；语音仍按摘要 -> 提示的顺序下发。
         if full_text:
             await self._reply_text_only(sn, FOLLOW_UP_PROMPT, "agent-follow-up")
-            await self._speak(sn, result.get("tts_reply") or self._voice_summary(full_text, max_len=80), wait=True)
-            await self._speak(sn, FOLLOW_UP_PROMPT)
+            if not summary_sent:
+                await self._speak(sn, result.get("tts_reply") or self._voice_summary(full_text, max_len=80))
         else:
             if tts_task is not None:
                 await tts_task
